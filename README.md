@@ -21,7 +21,7 @@ To run the benchmark:
 ./bin/benchmark/poly-benchmark-8k
 ```
 
-To run the CPU variant just recompile with cmake ..  -DWITH_PIM_HEXL=OFF
+To run the CPU variant just recompile with `cmake ..  -DWITH_PIM_HEXL=OFF`
 
 ## PIM Code
 
