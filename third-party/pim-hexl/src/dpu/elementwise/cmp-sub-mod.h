@@ -3,23 +3,23 @@
 #include <stdint.h>
 
 typedef struct {
-  uint64_t mod;
-  uint64_t diff;
-  uint64_t bound;
+  dpu_word_t mod;
+  dpu_word_t diff;
+  dpu_word_t bound;
   uint8_t cmp_code;
 } ctx_cmpsub_t;
 
-static void cmp_sub_mod_compute(uint64_t *out, const uint64_t *in,
-                                const uint64_t *_ /* unused */, uint32_t n,
+static void cmp_sub_mod_compute(dpu_word_t *out, const dpu_word_t *in,
+                                const dpu_word_t *_ /* unused */, uint32_t n,
                                 void *ctx_) {
   ctx_cmpsub_t *ctx = (ctx_cmpsub_t *)ctx_;
-  const uint64_t mod = ctx->mod;
-  const uint64_t diff = ctx->diff;
-  const uint64_t bound = ctx->bound;
+  const dpu_word_t mod = ctx->mod;
+  const dpu_word_t diff = ctx->diff;
+  const dpu_word_t bound = ctx->bound;
   const uint8_t code = ctx->cmp_code;
 
   for (uint32_t i = 0; i < n; ++i) {
-    uint64_t v = in[i];
+    dpu_word_t v = in[i];
 
     /* optional sanity-cut: ensure < mod (mimics Intel’s v %= mod) */
     if (v >= mod)

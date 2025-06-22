@@ -3,37 +3,37 @@
 
 typedef struct
 {
-  uint64_t mod;
-  uint64_t in_factor;
-  uint64_t out_factor;
+  dpu_word_t mod;
+  dpu_word_t in_factor;
+  dpu_word_t out_factor;
 } ctx_reduce_t;
 
-static inline uint64_t reduce_to_bound(uint64_t x,
-                                       uint64_t m,
-                                       uint64_t bound)
+static inline dpu_word_t reduce_to_bound(dpu_word_t x,
+                                       dpu_word_t m,
+                                       dpu_word_t bound)
 {
   while (x >= bound)
     x -= m;
   return x;
 }
 
-static void reduce_mod_compute(uint64_t *out,
-                               const uint64_t *in,
-                               const uint64_t *_ /*unused*/,
+static void reduce_mod_compute(dpu_word_t *out,
+                               const dpu_word_t *in,
+                               const dpu_word_t *_ /*unused*/,
                                uint32_t n,
                                void *ctx_)
 {
   const ctx_reduce_t *ctx = (const ctx_reduce_t *)ctx_;
-  const uint64_t m = ctx->mod;
-  const uint64_t f_in = ctx->in_factor;
-  const uint64_t f_out = ctx->out_factor;
+  const dpu_word_t m = ctx->mod;
+  const dpu_word_t f_in = ctx->in_factor;
+  const dpu_word_t f_out = ctx->out_factor;
 
-  const uint64_t bound_1m = m;
-  const uint64_t bound_2m = m << 1; /* 2·m */
+  const dpu_word_t bound_1m = m;
+  const dpu_word_t bound_2m = m << 1; /* 2·m */
 
   for (uint32_t i = 0; i < n; ++i)
   {
-    uint64_t x = in[i];
+    dpu_word_t x = in[i];
 
     if (f_in == 2)
     {
@@ -54,7 +54,7 @@ static void reduce_mod_compute(uint64_t *out,
 
     else
     {
-      uint64_t target = (f_out == 2) ? bound_2m : bound_1m;
+      dpu_word_t target = (f_out == 2) ? bound_2m : bound_1m;
       while (x >= target)
         x -= m; /* worst-case m times */
     }

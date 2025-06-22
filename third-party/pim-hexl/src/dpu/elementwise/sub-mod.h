@@ -2,19 +2,19 @@
 #include "../memory.h"
 #include <stdint.h>
 
-static void sub_mod_compute(uint64_t *out, const uint64_t *a, const uint64_t *b,
+static void sub_mod_compute(dpu_word_t *out, const dpu_word_t *a, const dpu_word_t *b,
                             uint32_t n, void *ctx_) {
-  uint64_t mod = ((ctx_binop_t *)ctx_)->mod;
+  dpu_word_t mod = ((ctx_binop_t *)ctx_)->mod;
   for (uint32_t i = 0; i < n; ++i) {
     out[i] = sub_mod_u64(a[i], b[i], mod);
   }
 }
 
-static void sub_mod_scalar_compute(uint64_t *out, const uint64_t *a,
-                                   const uint64_t *_, uint32_t n, void *ctx_) {
+static void sub_mod_scalar_compute(dpu_word_t *out, const dpu_word_t *a,
+                                   const dpu_word_t *_, uint32_t n, void *ctx_) {
   ctx_scalar_t *ctx = (ctx_scalar_t *)ctx_;
-  uint64_t mod = ctx->mod;
-  uint64_t scalar = ctx->scalar;
+  dpu_word_t mod = ctx->mod;
+  dpu_word_t scalar = ctx->scalar;
 
   for (uint32_t i = 0; i < n; ++i) {
     out[i] = sub_mod_u64(a[i], scalar, mod);

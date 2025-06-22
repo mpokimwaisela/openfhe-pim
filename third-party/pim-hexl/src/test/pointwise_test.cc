@@ -51,10 +51,10 @@ template <class Buf>
 dpu_arguments_t make_args(pimop_t op, uint64_t mod, uint64_t scalar, cmp_t cmp,
                           uint64_t bound, uint32_t in_f, uint32_t out_f, Buf &A,
                           Buf &B, Buf &C) {
-  size_t elems = A.shards()[0].host.size();
+  size_t elems = A.size();
   auto bldr = ArgsBuilder{}
-                  .A(A.shards()[0].blk.off, elems)
-                  .C(C.shards()[0].blk.off, elems)
+                  .A(A.shard().off, elems)
+                  .C(C.shard().off, elems)
                   .kernel(op)
                   .mod(mod)
                   .scalar(scalar)
@@ -63,8 +63,8 @@ dpu_arguments_t make_args(pimop_t op, uint64_t mod, uint64_t scalar, cmp_t cmp,
                   .in_factor(in_f)
                   .out_factor(out_f);
   if (op == MOD_ADD || op == MOD_SUB || op == MOD_MUL ||
-      (op == FMA_MOD && B.shards().size() > 0 /*with addend*/)) {
-    bldr.B(B.shards()[0].blk.off, elems);
+      (op == FMA_MOD && B.size() > 0 /*with addend*/)) {
+    bldr.B(B.shard().off, elems);
   }
   return bldr.build();
 }
@@ -176,15 +176,15 @@ void test_fma(pim::Vector<uint64_t> &A,
 
   /* ---------------- Build argument block ------------------ */
   ArgsBuilder ab;
-  ab.A(A.shards()[0].blk.off, 8)
-      .C(C.shards()[0].blk.off, 8)
+  ab.A(A.shard().off, 8)
+      .C(C.shard().off, 8)
       .kernel(FMA_MOD)
       .mod(mod)
       .scalar(scalar)
       .mod_factor(mod_factor);
 
   if (with_addend) // only when an addend is used
-    ab.B(B.shards()[0].blk.off, 8);
+    ab.B(B.shard().off, 8);
 
   auto args = ab.build();
 

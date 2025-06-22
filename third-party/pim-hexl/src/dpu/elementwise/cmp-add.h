@@ -3,15 +3,15 @@
 #include <stdint.h>
 
 typedef struct {
-  uint64_t bound;
-  uint64_t diff;
+  dpu_word_t bound;
+  dpu_word_t diff;
   uint8_t cmp_code;
 } ctx_cmp_t;
 
-static void cmp_add_compute(uint64_t *out, const uint64_t *in,
-                            const uint64_t *_, uint32_t n, void *ctx_) {
+static void cmp_add_compute(dpu_word_t *out, const dpu_word_t *in,
+                            const dpu_word_t *_, uint32_t n, void *ctx_) {
   ctx_cmp_t *ctx = (ctx_cmp_t *)ctx_;
-  uint64_t bound = ctx->bound, diff = ctx->diff;
+  dpu_word_t bound = ctx->bound, diff = ctx->diff;
   uint8_t code = ctx->cmp_code;
   for (uint32_t i = 0; i < n; ++i)
     out[i] = cmp_ok(in[i], bound, code) ? (in[i] + diff) : in[i];

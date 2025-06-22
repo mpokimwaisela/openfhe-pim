@@ -115,34 +115,42 @@ private:
 #ifdef WITH_PIM_HEXL
     // Helper method to set up PIM serialization/deserialization hooks
     void setup_pim_serialization() {
-        using NativeInt = typename IntegerType::Integer;
-        
-        // std::cout<< "Setting up PIM serialization for NativeVectorT with IntegerType: "
-        //           << typeid(IntegerType).name() << std::endl;
-        // Serializer: converts vector of NativeIntegerT to raw bytes
-        m_data.set_serializer([](const std::vector<IntegerType>& vec) -> std::vector<uint64_t> {
-            std::vector<NativeInt> raw_data;
-            raw_data.reserve(vec.size());
-            for (const auto& item : vec) {
-                raw_data.push_back(item.ConvertToInt());
+    m_data.set_serializer([](const pim::ShardedVector<IntegerType>& shards) -> pim::ShardedVector<dpu_word_t> {
+        pim::ShardedVector<dpu_word_t> result;
+        result.reserve(shards.size());
+
+        for (const auto& shard : shards) {
+            std::vector<dpu_word_t> raw_shard;
+            raw_shard.reserve(shard.size());
+
+            for (const auto& item : shard) {
+                raw_shard.push_back(static_cast<dpu_word_t>(item.ConvertToInt()));
             }
-            return raw_data;
-        });
+
+            result.emplace_back(std::move(raw_shard));
+        }
+    return result;
+    });
         
-        // Deserializer: converts raw bytes back to vector of NativeIntegerT
-        m_data.set_deserializer([](const std::vector<uint64_t>& raw_data, std::vector<IntegerType>& vec) {
-            size_t count = raw_data.size();
-            vec.resize(count);
-            for (size_t i = 0; i < count; ++i) {
-                vec[i] = IntegerType(raw_data[i]);
+     m_data.set_deserializer([](const pim::ShardedVector<dpu_word_t>& raw_shards, pim::ShardedVector<IntegerType>& vec) {
+        vec.resize(raw_shards.size());
+
+        for (size_t shard_idx = 0; shard_idx < raw_shards.size(); ++shard_idx) {
+            const auto& raw = raw_shards[shard_idx];
+            auto& out = vec[shard_idx];
+            out.resize(raw.size());
+
+            for (size_t i = 0; i < raw.size(); ++i) {
+                out[i] = IntegerType(raw[i]);
             }
-        });
+        }
+    });
     }
 
     // Helper method to check if PIM acceleration should be used
     bool UsePIMAcceleration() const {
         // Use PIM if available and data size is large enough to benefit
-        return pim::GetNumDPUs() > 0 && m_data.size() > 1024;
+        return pim::GetNumDPUs() > 0 && m_data.size() > 512;
     }
 #endif
 
@@ -458,39 +466,10 @@ public:
     NativeVectorT& ModAddNoCheckEq(const NativeVectorT& b) {
 #ifdef WITH_PIM_HEXL
         if (UsePIMAcceleration()) {
-            // Use PIM-accelerated modular addition
-            std::cout << "[DEBUG] PIM ModAddNoCheckEq: size=" << m_data.size()
-                      << ", modulus=" << m_modulus.ConvertToInt() << std::endl;
-            
-            // Print first few elements for debugging
-            size_t debug_count = std::min(size_t(4), m_data.size());
-            std::cout << "[DEBUG] Before PIM: ";
-            for (size_t i = 0; i < debug_count; ++i) {
-                std::cout << "a[" << i << "]=" << m_data[i].ConvertToInt() 
-                          << " + b[" << i << "]=" << b.m_data[i].ConvertToInt() << " ";
-            }
-            std::cout << std::endl;
-            
-            // Test with non-in-place operation to isolate the issue
-            // Create a temporary copy to avoid in-place operation
-            NativeVectorT<IntegerType> temp_result = *this;
-            pim::EltwiseAddMod(temp_result.m_data, m_data, b.m_data, m_modulus.ConvertToInt());
-            
-            std::cout << "[DEBUG] After PIM (temp): ";
-            for (size_t i = 0; i < debug_count; ++i) {
-                std::cout << "result[" << i << "]=" << temp_result.m_data[i].ConvertToInt() << " ";
-            }
-            std::cout << std::endl;
-            
-            // Copy result back
-            m_data = std::move(temp_result.m_data);
-            
-            std::cout << "[DEBUG] After copy back: ";
-            for (size_t i = 0; i < debug_count; ++i) {
-                std::cout << "result[" << i << "]=" << m_data[i].ConvertToInt() << " ";
-            }
-            std::cout << std::endl;
-            
+
+            auto temp(*this);
+            pim::EltwiseAddMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
+
             return *this;
         }
 #endif
@@ -570,14 +549,14 @@ public:
    */
     NativeVectorT& ModMulEq(const NativeVectorT& b);
     NativeVectorT& ModMulNoCheckEq(const NativeVectorT& b) {
-// #ifdef WITH_PIM_HEXL
-//         if (UsePIMAcceleration()) {
-//             // Use PIM-accelerated modular multiplication
-//             pim::EltwiseMulMod(m_data, m_data, b.m_data, m_modulus.ConvertToInt());
-//             return *this;
-//         }
-// #endif
-        // Fallback to CPU implementation
+#ifdef WITH_PIM_HEXL
+        if (UsePIMAcceleration()) {
+            auto temp(*this);
+            pim::EltwiseMulMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
+
+            return *this;
+        }
+#endif
         size_t size{m_data.size()};
         auto mv{m_modulus};
 #ifdef NATIVEINT_BARRET_MOD

@@ -3,12 +3,12 @@
 #include <stdint.h>
 
 typedef struct {
-  uint64_t mod;
+  dpu_word_t mod;
   uint8_t factor;
 } ctx_mult_t;
 
 /* Reduce x < 4·m into [0,m) with ≤2 subtractions*/
-static inline uint64_t reduce_4m(uint64_t x, uint64_t m) {
+static inline dpu_word_t reduce_4m(dpu_word_t x, dpu_word_t m) {
   if (x >= m)
     x -= m;
   if (x >= m)
@@ -17,15 +17,15 @@ static inline uint64_t reduce_4m(uint64_t x, uint64_t m) {
 }
 
 /*─────────────────  per-chunk compute callback ────────────────*/
-static void mult_mod_compute(uint64_t *out, const uint64_t *a,
-                             const uint64_t *b, uint32_t n, void *ctx_) {
+static void mult_mod_compute(dpu_word_t *out, const dpu_word_t *a,
+                             const dpu_word_t *b, uint32_t n, void *ctx_) {
   ctx_mult_t *ctx = (ctx_mult_t *)ctx_;
-  const uint64_t m = ctx->mod;
+  const dpu_word_t m = ctx->mod;
   const uint8_t factor = ctx->factor; /* 1 / 2 / 4 */
 
   for (uint32_t i = 0; i < n; ++i) {
-    uint64_t x = a[i];
-    uint64_t y = b[i];
+    dpu_word_t x = a[i];
+    dpu_word_t y = b[i];
 
     /* bring each operand into [0,m) */
     if (factor == 2 || factor == 4) {

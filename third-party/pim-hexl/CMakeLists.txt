@@ -40,7 +40,7 @@ if(DPU_FOUND)
         add_custom_command(
           OUTPUT ${DPU_KERNEL}
           COMMAND ${DPU_CC}
-                  -DNR_TASKLETS=1
+                  -DNR_TASKLETS=12
                   -o ${DPU_KERNEL}
                   ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu/main.c
           DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/dpu/main.c

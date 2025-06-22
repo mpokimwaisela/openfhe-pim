@@ -2,8 +2,8 @@
 #pragma once
 
 #include "host.hpp"
-#include "../utils/host_args.hpp"
-#include "../utils/common.h"
+#include "host_args.hpp"
+#include "common.h"
 #include <stdexcept>
 
 /**
@@ -28,16 +28,16 @@ namespace detail {
     template<typename T>
     dpu_arguments_t make_binary_args(pimop_t op, const Vector<T>& A, 
                                    const Vector<T>& B, const Vector<T>& C,
-                                   uint64_t modulus, uint64_t scalar = 0) {
-        if (A.shards().empty()) 
+                                   dpu_word_t modulus, dpu_word_t scalar = 0) {
+        if (A.empty()) 
             throw std::runtime_error("Input buffer A has no shards");
         
-        size_t elems = A.shards()[0].host.size();
-        
+        size_t elems = A.shard().bytes / sizeof(T);
+        // std::cout << "Building binary for OP: "<< op <<std::endl;;
         return ArgsBuilder{}
-            .A(A.shards()[0].blk.off, elems)
-            .B(B.shards()[0].blk.off, elems)
-            .C(C.shards()[0].blk.off, elems)
+            .A(A.shard().off, elems)
+            .B(B.shard().off, elems)
+            .C(C.shard().off, elems)
             .kernel(op)
             .mod(modulus)
             .scalar(scalar)
@@ -53,16 +53,16 @@ namespace detail {
      */
     template<typename T>
     dpu_arguments_t make_unary_args(pimop_t op, const Vector<T>& A, 
-                                  const Vector<T>& C, uint64_t modulus, 
-                                  uint64_t scalar) {
-        if (A.shards().empty()) 
-            throw std::runtime_error("Input buffer A has no shards");
+                                  const Vector<T>& C, dpu_word_t modulus, 
+                                  dpu_word_t scalar) {
+        if (A.empty()) 
+            throw std::runtime_error("Input buffer A is empty");
         
-        size_t elems = A.shards()[0].host.size();
+        size_t elems = A.shard().bytes/ sizeof(T);
         
         return ArgsBuilder{}
-            .A(A.shards()[0].blk.off, elems)
-            .C(C.shards()[0].blk.off, elems)
+            .A(A.shard().off, elems)
+            .C(C.shard().off, elems)
             .kernel(op)
             .mod(modulus)
             .scalar(scalar)
@@ -78,16 +78,16 @@ namespace detail {
      */
     template<typename T>
     dpu_arguments_t make_compare_args(pimop_t op, const Vector<T>& A, 
-                                    const Vector<T>& C, uint64_t modulus,
-                                    cmp_t comparison, uint64_t bound, uint64_t diff) {
-        if (A.shards().empty()) 
+                                    const Vector<T>& C, dpu_word_t modulus,
+                                    cmp_t comparison, dpu_word_t bound, dpu_word_t diff) {
+        if (A.empty()) 
             throw std::runtime_error("Input buffer A has no shards");
         
-        size_t elems = A.shards()[0].host.size();
+        size_t elems = A.shard().bytes/ sizeof(T);
         
         return ArgsBuilder{}
-            .A(A.shards()[0].blk.off, elems)
-            .C(C.shards()[0].blk.off, elems)
+            .A(A.shard().off, elems)
+            .C(C.shard().off, elems)
             .kernel(op)
             .mod(modulus)
             .scalar(diff)
@@ -106,7 +106,7 @@ namespace detail {
  */
 template<typename T>
 void EltwiseAddMod(Vector<T>& destination, const Vector<T>& op1, 
-                   const Vector<T>& op2, uint64_t modulus) {
+                   const Vector<T>& op2, dpu_word_t modulus) {
     auto args = detail::make_binary_args(MOD_ADD, op1, op2, destination, modulus);
     run_kernel(args, std::tie(op1, op2), std::tie(destination));
 }
@@ -116,7 +116,7 @@ void EltwiseAddMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseAddScalarMod(Vector<T>& destination, const Vector<T>& op1, 
-                         uint64_t scalar, uint64_t modulus) {
+                         dpu_word_t scalar, dpu_word_t modulus) {
     auto args = detail::make_unary_args(MOD_ADD_SCALAR, op1, destination, modulus, scalar);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -126,7 +126,7 @@ void EltwiseAddScalarMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseSubMod(Vector<T>& destination, const Vector<T>& op1, 
-                   const Vector<T>& op2, uint64_t modulus) {
+                   const Vector<T>& op2, dpu_word_t modulus) {
     auto args = detail::make_binary_args(MOD_SUB, op1, op2, destination, modulus);
     run_kernel(args, std::tie(op1, op2), std::tie(destination));
 }
@@ -136,7 +136,7 @@ void EltwiseSubMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseSubScalarMod(Vector<T>& destination, const Vector<T>& op1, 
-                         uint64_t scalar, uint64_t modulus) {
+                         dpu_word_t scalar, dpu_word_t modulus) {
     auto args = detail::make_unary_args(MOD_SUB_SCALAR, op1, destination, modulus, scalar);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -146,7 +146,7 @@ void EltwiseSubScalarMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseMulMod(Vector<T>& destination, const Vector<T>& op1, 
-                   const Vector<T>& op2, uint64_t modulus) {
+                   const Vector<T>& op2, dpu_word_t modulus) {
     auto args = detail::make_binary_args(MOD_MUL, op1, op2, destination, modulus);
     run_kernel(args, std::tie(op1, op2), std::tie(destination));
 }
@@ -158,16 +158,16 @@ void EltwiseMulMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseFMAMod(Vector<T>& destination, const Vector<T>& op1, 
-                   const Vector<T>& addend, uint64_t scalar, uint64_t modulus) {
-    if (op1.shards().empty()) 
+                   const Vector<T>& addend, dpu_word_t scalar, dpu_word_t modulus) {
+    if (op1.empty()) 
         throw std::runtime_error("Input buffer has no shards");
     
-    size_t elems = op1.shards()[0].host.size();
+    size_t elems = op1.shard().bytes / sizeof(T);
     
     auto args = ArgsBuilder{}
-        .A(op1.shards()[0].blk.off, elems)
-        .B(addend.shards()[0].blk.off, elems)
-        .C(destination.shards()[0].blk.off, elems)
+        .A(op1.shard().off, elems)
+        .B(addend.shard().off, elems)
+        .C(destination.shard().off, elems)
         .kernel(FMA_MOD)
         .mod(modulus)
         .scalar(scalar)
@@ -185,15 +185,15 @@ void EltwiseFMAMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseScalarMulMod(Vector<T>& destination, const Vector<T>& op1, 
-                         uint64_t scalar, uint64_t modulus) {
-    if (op1.shards().empty()) 
+                         dpu_word_t scalar, dpu_word_t modulus) {
+    if (op1.empty()) 
         throw std::runtime_error("Input buffer has no shards");
     
-    size_t elems = op1.shards()[0].host.size();
+    size_t elems = op1.shard().bytes/sizeof(T);
     
     auto args = ArgsBuilder{}
-        .A(op1.shards()[0].blk.off, elems)
-        .C(destination.shards()[0].blk.off, elems)
+        .A(op1.shard().off, elems)
+        .C(destination.shard().off, elems)
         .kernel(FMA_MOD)
         .mod(modulus)
         .scalar(scalar)
@@ -213,7 +213,7 @@ void EltwiseScalarMulMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseConditionalAdd(Vector<T>& destination, const Vector<T>& op1, 
-                           cmp_t comparison, uint64_t bound, uint64_t diff) {
+                           cmp_t comparison, dpu_word_t bound, dpu_word_t diff) {
     auto args = detail::make_compare_args(CMP_ADD, op1, destination, 0, comparison, bound, diff);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -223,7 +223,7 @@ void EltwiseConditionalAdd(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseConditionalSubMod(Vector<T>& destination, const Vector<T>& op1, 
-                              uint64_t modulus, cmp_t comparison, uint64_t bound, uint64_t diff) {
+                              dpu_word_t modulus, cmp_t comparison, dpu_word_t bound, dpu_word_t diff) {
     auto args = detail::make_compare_args(CMP_SUB_MOD, op1, destination, modulus, comparison, bound, diff);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -235,15 +235,15 @@ void EltwiseConditionalSubMod(Vector<T>& destination, const Vector<T>& op1,
  */
 template<typename T>
 void EltwiseReduceMod(Vector<T>& destination, const Vector<T>& op1, 
-                      uint64_t modulus, uint32_t input_factor, uint32_t output_factor) {
-    if (op1.shards().empty()) 
+                      dpu_word_t modulus, uint32_t input_factor, uint32_t output_factor) {
+    if (op1.empty()) 
         throw std::runtime_error("Input buffer has no shards");
     
-    size_t elems = op1.shards()[0].host.size();
+    size_t elems = op1.shard().bytes/sizeof(T);
     
     auto args = ArgsBuilder{}
-        .A(op1.shards()[0].blk.off, elems)
-        .C(destination.shards()[0].blk.off, elems)
+        .A(op1.shard().off, elems)
+        .C(destination.shard().off, elems)
         .kernel(MOD_REDUCE)
         .mod(modulus)
         .scalar(0)

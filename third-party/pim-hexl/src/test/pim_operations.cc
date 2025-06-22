@@ -1,229 +1,437 @@
-// ─────────────────────────── pim_operations_example.cpp ───────────────────────────
+// ─────────────────────────── pim_operations_test.cpp ───────────────────────────
 /**
- * @file pim_operations_example.cpp
- * @brief Example usage of the high-level PIM operations
+ * @file pim_operations_test.cpp
+ * @brief Rigorous test suite for PIM operations with large polynomials
  * 
- * This example demonstrates how to use the simplified PIM operations
- * for common modular arithmetic tasks in OpenFHE integration.
+ * This test suite validates PIM operations correctness using polynomial size 8192
+ * and large 60-bit modulus, comparing PIM results against CPU reference implementations.
  */
 
-#include "pim.hpp"
+#include "../host/pim.hpp"
 #include <iostream>
 #include <vector>
 #include <iomanip>
+#include <random>
+#include <chrono>
+#include <cassert>
+#include <cstdint>
 
-void test_basic_arithmetic() {
-    std::cout << "\n=== Basic Arithmetic Operations ===\n";
-    
-    const size_t N = 8;
-    const uint64_t modulus = 100;
-    
-    // Create PIM buffers
-    pim::Vector<uint64_t> A(N), B(N), C(N);
-    
-    // Initialize test data
-    for (size_t i = 0; i < N; ++i) {
-        A[i] = (i * 13) % modulus;  // 0, 13, 26, 39, 52, 65, 78, 91
-        B[i] = (i * 7 + 5) % modulus;   // 5, 12, 19, 26, 33, 40, 47, 54
-    }
-    
-    std::cout << "Input A: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << A[i] << " ";
-    std::cout << "\nInput B: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << B[i] << " ";
-    std::cout << "\n";
-    
-    // Test addition
-    pim::EltwiseAddMod(C, A, B, modulus);
-    std::cout << "A + B:   ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
-    
-    // Test subtraction
-    pim::EltwiseSubMod(C, A, B, modulus);
-    std::cout << "A - B:   ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
-    
-    // Test multiplication
-    pim::EltwiseMulMod(C, A, B, modulus);
-    std::cout << "A * B:   ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
+// Test configuration
+const size_t POLY_SIZE = 8192;
+const uint64_t MODULUS_60BIT = (1ULL << 60) - 93;  // Large 60-bit prime: 1152921504606846883
+const uint64_t SMALL_MODULUS = 40961;  // 2^15 + 1, commonly used in FHE
+
+// Utility functions for correctness verification
+uint64_t mod_add(uint64_t a, uint64_t b, uint64_t mod) {
+    uint64_t result = a + b;
+    return (result >= mod) ? result - mod : result;
 }
 
-void test_scalar_operations() {
-    std::cout << "\n=== Scalar Operations ===\n";
-    
-    const size_t N = 8;
-    const uint64_t modulus = 257;
-    const uint64_t scalar = 17;
-    
-    pim::Vector<uint64_t> A(N), C(N);
-    
-    // Initialize test data
-    for (size_t i = 0; i < N; ++i) {
-        A[i] = (i * 23) % modulus;
-    }
-    
-    std::cout << "Input A: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << A[i] << " ";
-    std::cout << "\nScalar:  " << scalar << "\n";
-    
-    // Test scalar addition
-    pim::EltwiseAddScalarMod(C, A, scalar, modulus);
-    std::cout << "A + " << scalar << ":   ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
-    
-    // Test scalar subtraction
-    pim::EltwiseSubScalarMod(C, A, scalar, modulus);
-    std::cout << "A - " << scalar << ":   ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
-    
-    // Test scalar multiplication
-    pim::EltwiseScalarMulMod(C, A, scalar, modulus);
-    std::cout << "A * " << scalar << ":   ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
+uint64_t mod_sub(uint64_t a, uint64_t b, uint64_t mod) {
+    return (a >= b) ? a - b : a + mod - b;
 }
 
-void test_fma_operations() {
-    std::cout << "\n=== FMA Operations ===\n";
-    
-    const size_t N = 8;
-    const uint64_t modulus = 257;
-    const uint64_t scalar = 13;
-    
-    pim::Vector<uint64_t> A(N), B(N), C(N);
-    
-    // Initialize test data
-    for (size_t i = 0; i < N; ++i) {
-        A[i] = i + 1;           // 1, 2, 3, 4, 5, 6, 7, 8
-        B[i] = (i * 2 + 3) % modulus; // 3, 5, 7, 9, 11, 13, 15, 17
-    }
-    
-    std::cout << "Input A: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << A[i] << " ";
-    std::cout << "\nInput B: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << B[i] << " ";
-    std::cout << "\nScalar:  " << scalar << "\n";
-    
-    // Test FMA: A * scalar + B
-    pim::EltwiseFMAMod(C, A, B, scalar, modulus);
-    std::cout << "A*" << scalar << "+B: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
+uint64_t mod_mul(uint64_t a, uint64_t b, uint64_t mod) {
+    return ((__uint128_t)a * b) % mod;
 }
 
-void test_conditional_operations() {
-    std::cout << "\n=== Conditional Operations ===\n";
+// Generate test vectors with controlled patterns
+void generate_test_vectors(std::vector<uint64_t>& A, std::vector<uint64_t>& B, uint64_t modulus, int seed = 42) {
+    std::mt19937_64 rng(seed);
+    std::uniform_int_distribution<uint64_t> dist(0, modulus - 1);
     
-    const size_t N = 8;
-    const uint64_t modulus = 257;
-    const uint64_t bound = 50;
-    const uint64_t diff = 10;
+    A.resize(POLY_SIZE);
+    B.resize(POLY_SIZE);
     
-    pim::Vector<uint64_t> A(N), C(N);
-    
-    // Initialize test data with values around the bound
-    std::vector<uint64_t> test_values = {30, 45, 50, 55, 60, 75, 40, 80};
-    for (size_t i = 0; i < N; ++i) {
-        A[i] = test_values[i];
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        A[i] = dist(rng);
+        B[i] = dist(rng);
     }
-    
-    std::cout << "Input A: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << A[i] << " ";
-    std::cout << "\nBound:   " << bound << ", Diff: " << diff << "\n";
-    
-    // Test conditional add (if A[i] >= bound, add diff)
-    pim::EltwiseConditionalAdd(C, A, pim::GREATER_EQUAL, bound, diff);
-    std::cout << "A+(A>=" << bound << "?" << diff << ":0): ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
-    
-    // Test conditional sub mod (if A[i] < bound, subtract diff mod modulus)
-    pim::EltwiseConditionalSubMod(C, A, modulus, pim::LESS_THAN, bound, diff);
-    std::cout << "A-(A<" << bound << "?" << diff << ":0): ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(3) << C[i] << " ";
-    std::cout << "\n";
 }
 
-void test_reduction_operations() {
-    std::cout << "\n=== Reduction Operations ===\n";
+bool test_basic_arithmetic_rigorous(uint64_t modulus, const std::string& test_name) {
+    std::cout << "\n=== Rigorous Basic Arithmetic Test: " << test_name << " ===\n";
+    std::cout << "Polynomial size: " << POLY_SIZE << ", Modulus: " << modulus << std::endl;
     
-    const size_t N = 6;
-    const uint64_t modulus = 750;
+    // Generate test data
+    std::vector<uint64_t> A_cpu, B_cpu;
+    generate_test_vectors(A_cpu, B_cpu, modulus);
     
-    pim::Vector<uint64_t> A(N), C(N);
+    // Create PIM vectors
+    pim::Vector<uint64_t> A_pim(POLY_SIZE), B_pim(POLY_SIZE), C_pim(POLY_SIZE);
     
-    // Test case from pointwise_test.cc
-    std::vector<uint64_t> test_values = {0, 450, 735, 900, 1350, 1459};
-    for (size_t i = 0; i < N; ++i) {
-        A[i] = test_values[i];
+    // Copy data to PIM vectors
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        A_pim[i] = A_cpu[i];
+        B_pim[i] = B_cpu[i];
     }
     
-    std::cout << "Input A: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(4) << A[i] << " ";
-    std::cout << "\nModulus: " << modulus << "\n";
+    bool all_tests_passed = true;
     
-    // Test reduction with factor 2->2 (should be identity for values < modulus)
-    pim::EltwiseReduceMod(C, A, modulus, 2, 2);
-    std::cout << "Reduce 2->2: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(4) << C[i] << " ";
-    std::cout << "\n";
+    // Test 1: Addition
+    std::cout << "Testing modular addition... ";
+    auto start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseAddMod(C_pim, A_pim, B_pim, modulus);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto pim_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     
-    // Test reduction with factor 4->1 
-    pim::EltwiseReduceMod(C, A, modulus, 4, 1);
-    std::cout << "Reduce 4->1: ";
-    for (size_t i = 0; i < N; ++i) std::cout << std::setw(4) << C[i] << " ";
-    std::cout << "\n";
+    // Verify correctness
+    bool add_correct = true;
+    start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        uint64_t expected = mod_add(A_cpu[i], B_cpu[i], modulus);
+        if (C_pim[i] != expected) {
+            std::cout << "FAILED at index " << i << ": got " << C_pim[i] << ", expected " << expected << std::endl;
+            std::cout << "A[" << i << "] = " << A_cpu[i] << ", B[" << i << "] = " << B_cpu[i] << std::endl;
+            add_correct = false;
+            break;
+        }
+    }
+    end = std::chrono::high_resolution_clock::now();
+    auto cpu_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    if (add_correct) {
+        std::cout << "PASSED (PIM: " << pim_time.count() << "μs, CPU verify: " << cpu_time.count() << "μs)" << std::endl;
+    } else {
+        all_tests_passed = false;
+    }
+    
+    // Test 2: Subtraction
+    std::cout << "Testing modular subtraction... ";
+    start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseSubMod(C_pim, A_pim, B_pim, modulus);
+    end = std::chrono::high_resolution_clock::now();
+    pim_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    bool sub_correct = true;
+    start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        uint64_t expected = mod_sub(A_cpu[i], B_cpu[i], modulus);
+        if (C_pim[i] != expected) {
+            std::cout << "FAILED at index " << i << ": got " << C_pim[i] << ", expected " << expected << std::endl;
+            sub_correct = false;
+            break;
+        }
+    }
+    end = std::chrono::high_resolution_clock::now();
+    cpu_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    if (sub_correct) {
+        std::cout << "PASSED (PIM: " << pim_time.count() << "μs, CPU verify: " << cpu_time.count() << "μs)" << std::endl;
+    } else {
+        all_tests_passed = false;
+    }
+    
+    // Test 3: Multiplication
+    std::cout << "Testing modular multiplication... ";
+    start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseMulMod(C_pim, A_pim, B_pim, modulus);
+    end = std::chrono::high_resolution_clock::now();
+    pim_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    bool mul_correct = true;
+    start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        uint64_t expected = mod_mul(A_cpu[i], B_cpu[i], modulus);
+        if (C_pim[i] != expected) {
+            std::cout << "FAILED at index " << i << ": got " << C_pim[i] << ", expected " << expected << std::endl;
+            mul_correct = false;
+            break;
+        }
+    }
+    end = std::chrono::high_resolution_clock::now();
+    cpu_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    if (mul_correct) {
+        std::cout << "PASSED (PIM: " << pim_time.count() << "μs, CPU verify: " << cpu_time.count() << "μs)" << std::endl;
+    } else {
+        all_tests_passed = false;
+    }
+    
+    return all_tests_passed;
+}
+
+bool test_scalar_operations_rigorous(uint64_t modulus, const std::string& test_name) {
+    std::cout << "\n=== Rigorous Scalar Operations Test: " << test_name << " ===\n";
+    std::cout << "Polynomial size: " << POLY_SIZE << ", Modulus: " << modulus << std::endl;
+    
+    // Generate test data
+    std::vector<uint64_t> A_cpu, B_cpu;
+    generate_test_vectors(A_cpu, B_cpu, modulus, 123);
+    
+    uint64_t scalar = 0x123456789ABCDEFULL % modulus;  // Large scalar
+    
+    pim::Vector<uint64_t> A_pim(POLY_SIZE), C_pim(POLY_SIZE);
+    
+    // Copy data to PIM vectors
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        A_pim[i] = A_cpu[i];
+    }
+    
+    std::cout << "Using scalar: " << scalar << std::endl;
+    
+    bool all_tests_passed = true;
+    
+    // Test 1: Scalar Addition
+    std::cout << "Testing scalar addition... ";
+    auto start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseAddScalarMod(C_pim, A_pim, scalar, modulus);
+    auto end = std::chrono::high_resolution_clock::now();
+    auto pim_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    bool add_correct = true;
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        uint64_t expected = mod_add(A_cpu[i], scalar, modulus);
+        if (C_pim[i] != expected) {
+            std::cout << "FAILED at index " << i << ": got " << C_pim[i] << ", expected " << expected << std::endl;
+            add_correct = false;
+            break;
+        }
+    }
+    
+    if (add_correct) {
+        std::cout << "PASSED (PIM: " << pim_time.count() << "μs)" << std::endl;
+    } else {
+        all_tests_passed = false;
+    }
+    
+    // Test 2: Scalar Subtraction  
+    std::cout << "Testing scalar subtraction... ";
+    start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseSubScalarMod(C_pim, A_pim, scalar, modulus);
+    end = std::chrono::high_resolution_clock::now();
+    pim_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    bool sub_correct = true;
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        uint64_t expected = mod_sub(A_cpu[i], scalar, modulus);
+        if (C_pim[i] != expected) {
+            std::cout << "FAILED at index " << i << ": got " << C_pim[i] << ", expected " << expected << std::endl;
+            sub_correct = false;
+            break;
+        }
+    }
+    
+    if (sub_correct) {
+        std::cout << "PASSED (PIM: " << pim_time.count() << "μs)" << std::endl;
+    } else {
+        all_tests_passed = false;
+    }
+    
+    // Test 3: Scalar Multiplication
+    std::cout << "Testing scalar multiplication... ";
+    start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseScalarMulMod(C_pim, A_pim, scalar, modulus);
+    end = std::chrono::high_resolution_clock::now();
+    pim_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    bool mul_correct = true;
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        uint64_t expected = mod_mul(A_cpu[i], scalar, modulus);
+        if (C_pim[i] != expected) {
+            std::cout << "FAILED at index " << i << ": got " << C_pim[i] << ", expected " << expected << std::endl;
+            mul_correct = false;
+            break;
+        }
+    }
+    
+    if (mul_correct) {
+        std::cout << "PASSED (PIM: " << pim_time.count() << "μs)" << std::endl;
+    } else {
+        all_tests_passed = false;
+    }
+    
+    return all_tests_passed;
+}
+
+bool test_edge_cases(uint64_t modulus, const std::string& test_name) {
+    std::cout << "\n=== Edge Cases Test: " << test_name << " ===\n";
+    
+    pim::Vector<uint64_t> A_pim(POLY_SIZE), B_pim(POLY_SIZE), C_pim(POLY_SIZE);
+    
+    // Test 1: All zeros
+    std::cout << "Testing with all zeros... ";
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        A_pim[i] = 0;
+        B_pim[i] = 0;
+    }
+    
+    pim::EltwiseAddMod(C_pim, A_pim, B_pim, modulus);
+    bool zero_test = true;
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        if (C_pim[i] != 0) {
+            zero_test = false;
+            break;
+        }
+    }
+    std::cout << (zero_test ? "PASSED" : "FAILED") << std::endl;
+    
+    // Test 2: Maximum values
+    std::cout << "Testing with maximum values... ";
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        A_pim[i] = modulus - 1;
+        B_pim[i] = modulus - 1;
+    }
+    
+    pim::EltwiseAddMod(C_pim, A_pim, B_pim, modulus);
+    bool max_test = true;
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        uint64_t expected = (2 * (modulus - 1)) % modulus;
+        if (C_pim[i] != expected) {
+            max_test = false;
+            break;
+        }
+    }
+    std::cout << (max_test ? "PASSED" : "FAILED") << std::endl;
+    
+    // Test 3: Powers of 2
+    std::cout << "Testing with powers of 2... ";
+    bool power2_test = true;
+    for (size_t i = 0; i < std::min(POLY_SIZE, size_t(60)); ++i) {
+        A_pim[i] = (1ULL << i) % modulus;
+        B_pim[i] = (1ULL << i) % modulus;
+    }
+    for (size_t i = 60; i < POLY_SIZE; ++i) {
+        A_pim[i] = 1;
+        B_pim[i] = 1;
+    }
+    
+    pim::EltwiseAddMod(C_pim, A_pim, B_pim, modulus);
+    
+    for (size_t i = 0; i < std::min(POLY_SIZE, size_t(60)); ++i) {
+        uint64_t expected = (2 * ((1ULL << i) % modulus)) % modulus;
+        if (C_pim[i] != expected) {
+            power2_test = false;
+            break;
+        }
+    }
+    std::cout << (power2_test ? "PASSED" : "FAILED") << std::endl;
+    
+    return zero_test && max_test && power2_test;
+}
+
+void performance_comparison(uint64_t modulus, const std::string& test_name) {
+    std::cout << "\n=== Performance Comparison: " << test_name << " ===\n";
+    
+    // Generate test data
+    std::vector<uint64_t> A_cpu, B_cpu, C_cpu(POLY_SIZE);
+    generate_test_vectors(A_cpu, B_cpu, modulus, 999);
+    
+    // CPU baseline
+    auto start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        C_cpu[i] = mod_add(A_cpu[i], B_cpu[i], modulus);
+    }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto cpu_add_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        C_cpu[i] = mod_mul(A_cpu[i], B_cpu[i], modulus);
+    }
+    end = std::chrono::high_resolution_clock::now();
+    auto cpu_mul_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    // PIM performance
+    pim::Vector<uint64_t> A_pim(POLY_SIZE), B_pim(POLY_SIZE), C_pim(POLY_SIZE);
+    for (size_t i = 0; i < POLY_SIZE; ++i) {
+        A_pim[i] = A_cpu[i];
+        B_pim[i] = B_cpu[i];
+    }
+    
+    start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseAddMod(C_pim, A_pim, B_pim, modulus);
+    end = std::chrono::high_resolution_clock::now();
+    auto pim_add_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    start = std::chrono::high_resolution_clock::now();
+    pim::EltwiseMulMod(C_pim, A_pim, B_pim, modulus);
+    end = std::chrono::high_resolution_clock::now();
+    auto pim_mul_time = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    
+    std::cout << "Addition  - CPU: " << cpu_add_time.count() << "μs, PIM: " << pim_add_time.count() << "μs";
+    if (cpu_add_time.count() > 0) {
+        std::cout << " (speedup: " << std::fixed << std::setprecision(2) 
+                  << (double)cpu_add_time.count() / pim_add_time.count() << "x)";
+    }
+    std::cout << std::endl;
+    
+    std::cout << "Multiplication - CPU: " << cpu_mul_time.count() << "μs, PIM: " << pim_mul_time.count() << "μs";
+    if (cpu_mul_time.count() > 0) {
+        std::cout << " (speedup: " << std::fixed << std::setprecision(2) 
+                  << (double)cpu_mul_time.count() / pim_mul_time.count() << "x)";
+    }
+    std::cout << std::endl;
 }
 
 int main() {
-    std::cout << "PIM Operations Example\n";
-    std::cout << "=====================\n";
+    std::cout << "=================================================================\n";
+    std::cout << "        PIM Operations Rigorous Test Suite\n";
+    std::cout << "=================================================================\n";
+    std::cout << "Polynomial size: " << POLY_SIZE << std::endl;
+    std::cout << "60-bit modulus: " << MODULUS_60BIT << std::endl;
+    std::cout << "Small modulus:  " << SMALL_MODULUS << std::endl;
+    std::cout << "=================================================================\n";
     
     try {
-        // Initialize PIM system
-        pim::Init(1);  // Use 1 DPU for simplicity
+        pim::Init(256);  
         std::cout << "Initialized PIM system with " << pim::GetNumDPUs() << " DPU(s)\n";
         
-        // Run test suites
-        test_basic_arithmetic();
-        test_scalar_operations();
-        test_fma_operations();
-        test_conditional_operations();
-        test_reduction_operations();
+        bool all_tests_passed = true;
         
-        std::cout << "\nAll operations completed successfully!\n";
+        // Test with small modulus first
+        std::cout << "\n" << std::string(60, '=') << std::endl;
+        std::cout << "TESTING WITH SMALL MODULUS (2^15 + 1)" << std::endl;
+        std::cout << std::string(60, '=') << std::endl;
+        
+        if (!test_basic_arithmetic_rigorous(SMALL_MODULUS, "Small Modulus")) {
+            all_tests_passed = false;
+        }
+        
+        if (!test_scalar_operations_rigorous(SMALL_MODULUS, "Small Modulus")) {
+            all_tests_passed = false;
+        }
+        
+        if (!test_edge_cases(SMALL_MODULUS, "Small Modulus")) {
+            all_tests_passed = false;
+        }
+        
+        performance_comparison(SMALL_MODULUS, "Small Modulus");
+        
+        std::cout << "\n" << std::string(60, '=') << std::endl;
+        std::cout << "TESTING WITH LARGE 60-BIT MODULUS" << std::endl;
+        std::cout << std::string(60, '=') << std::endl;
+        
+        if (!test_basic_arithmetic_rigorous(MODULUS_60BIT, "60-bit Modulus")) {
+            all_tests_passed = false;
+        }
+        
+        if (!test_scalar_operations_rigorous(MODULUS_60BIT, "60-bit Modulus")) {
+            all_tests_passed = false;
+        }
+        
+        if (!test_edge_cases(MODULUS_60BIT, "60-bit Modulus")) {
+            all_tests_passed = false;
+        }
+        
+        performance_comparison(MODULUS_60BIT, "60-bit Modulus");
+        
+        // Final summary
+        std::cout << "\n" << std::string(60, '=') << std::endl;
+        std::cout << "FINAL RESULTS" << std::endl;
+        std::cout << std::string(60, '=') << std::endl;
+        
+        if (all_tests_passed) {
+            std::cout << "✅ ALL TESTS PASSED! PIM operations are working correctly." << std::endl;
+        } else {
+            std::cout << "❌ SOME TESTS FAILED! Please check the output above." << std::endl;
+            return 1;
+        }
         
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "❌ Error during test execution: " << e.what() << std::endl;
         return 1;
     }
     
     return 0;
 }
-
-/*
-Expected Output Format:
-======================
-
-=== Basic Arithmetic Operations ===
-Input A:   0  13  26  39  52  65  78  91 
-Input B:   5  12  19  26  33  40  47  54 
-A + B:     5  25  45  65  85 105 125 145 
-A - B:   252   1   7  13  19  25  31  37 
-A * B:     0 156 237 243 231  85 242  91 
-
-=== Scalar Operations ===
-Input A:   0  23  46  69  92 115 138 161 
-Scalar:  17
-A + 17:   17  40  63  86 109 132 155 178 
-A - 17:  240   6  29  52  75  98 121 144 
-A * 17:    0 134  11 145  22 156  33 167 
-
-... (additional output for other test suites)
-*/

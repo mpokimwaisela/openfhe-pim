@@ -4,6 +4,8 @@
 
 #define NR_KERNELS 10
 // #define DEBUG 0
+typedef uint64_t dpu_word_t;
+
 
 typedef enum {
   MOD_ADD,

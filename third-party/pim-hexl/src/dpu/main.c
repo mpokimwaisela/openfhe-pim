@@ -18,9 +18,14 @@ int (*kernels[NR_KERNELS])(void) = {mod_add, mod_add_scalar, cmp_add,
 int main()
 {
   unsigned tid = me();
-  if (tid == 0)
+  if (tid == 0){
     mem_reset();
+#ifdef DEBUG
+    printf("NR_TASKLETS %u:\n", NR_TASKLETS);
+#endif
+  }
 
   barrier_wait(&my_barrier);
+
   return kernels[DPU_INPUT_ARGUMENTS.kernel]();
 }

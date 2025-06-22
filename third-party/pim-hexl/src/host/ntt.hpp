@@ -44,8 +44,6 @@ replicated_twiddles(uint32_t N, uint64_t mod) {
     }
   }
 
-  W.commit();
-  W_inv.commit();
   return {std::move(W), std::move(W_inv)};
 }
 
@@ -65,8 +63,8 @@ static void launch_stage(Vector<uint64_t> &data,
                          uint32_t span, bool inverse, bool last) {
   uint32_t step = data.size() / (2 * span);
   auto args = ArgsBuilder{}
-                  .A(data.shards()[0].blk.off, data.size())
-                  .B(W.shards()[0].blk.off, W.size())
+                  .A(data.shard().off, data.size())
+                  .B(W.shard().off, W.size())
                   .kernel(pimop_t::NTT_STAGE)
                   .mod(mod)
                   .scalar(0ULL) // do final scaling on host
@@ -96,7 +94,6 @@ inline void distributed_ntt(Vector<uint64_t> &vec,
 
   if (!inverse) {
     bit_reverse(vec);
-    vec.commit();
   }
 
   uint32_t span = 1;
@@ -129,13 +126,10 @@ inline void distributed_ntt(Vector<uint64_t> &vec,
 
   if (inverse) {
     bit_reverse(vec);
-    vec.commit();
     uint64_t invN = inverse_mod_u64(N, mod);
     for (uint32_t i = 0; i < N; ++i)
       vec[i] = mul_mod_u64(vec[i], invN, mod);
-  } else {
-    vec.commit();
-  }
+  } 
 }
 
 } // namespace pim

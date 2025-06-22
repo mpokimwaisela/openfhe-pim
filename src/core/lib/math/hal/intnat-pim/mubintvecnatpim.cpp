@@ -112,28 +112,28 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::operator=(std::initializ
  */
 template <class IntegerType>
 void NativeVectorT<IntegerType>::SwitchModulus(const IntegerType& modulus) {
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         IntegerType halfQ{m_modulus >> 1};
-//         IntegerType diff{(m_modulus > modulus) ? (m_modulus - modulus) : (modulus - m_modulus)};
-        
-//         if (modulus > m_modulus) {
-//             pim::EltwiseConditionalAdd(m_data, m_data, 
-//                                      pim::GREATER_THAN,     
-//                                      halfQ.ConvertToInt(),    
-//                                      diff.ConvertToInt());    
-//         } else {
-//             pim::EltwiseConditionalSubMod(m_data, m_data, 
-//                                         modulus.ConvertToInt(), 
-//                                         pim::GREATER_THAN,    
-//                                         halfQ.ConvertToInt(),   
-//                                         diff.ConvertToInt());   
-//         }
-//         this->SetModulus(modulus);
-//         return;
-//     }
-// #endif
-    
+    // #ifdef WITH_PIM_HEXL
+    //     if (UsePIMAcceleration()) {
+    //         IntegerType halfQ{m_modulus >> 1};
+    //         IntegerType diff{(m_modulus > modulus) ? (m_modulus - modulus) : (modulus - m_modulus)};
+
+    //         if (modulus > m_modulus) {
+    //             pim::EltwiseConditionalAdd(m_data, m_data,
+    //                                      pim::GREATER_THAN,
+    //                                      halfQ.ConvertToInt(),
+    //                                      diff.ConvertToInt());
+    //         } else {
+    //             pim::EltwiseConditionalSubMod(m_data, m_data,
+    //                                         modulus.ConvertToInt(),
+    //                                         pim::GREATER_THAN,
+    //                                         halfQ.ConvertToInt(),
+    //                                         diff.ConvertToInt());
+    //         }
+    //         this->SetModulus(modulus);
+    //         return;
+    //     }
+    // #endif
+
     // Original CPU fallback code
     IntegerType halfQ{m_modulus >> 1};
     IntegerType diff{(m_modulus > modulus) ? (m_modulus - modulus) : (modulus - m_modulus)};
@@ -147,7 +147,6 @@ void NativeVectorT<IntegerType>::SwitchModulus(const IntegerType& modulus) {
     }
     this->SetModulus(modulus);
 }
-
 
 template <class IntegerType>
 void NativeVectorT<IntegerType>::LazySwitchModulus(const IntegerType& modulus) {
@@ -208,18 +207,18 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModEq(const IntegerType&
 
 template <class IntegerType>
 NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModAdd(const IntegerType& b) const {
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        NativeVectorT ans(m_data.size(), m_modulus);
+        pim::EltwiseAddScalarMod(ans.m_data, m_data, b.ConvertToInt(), m_modulus.ConvertToInt());
+        return ans;
+    }
+#endif
     auto ans(*this);
     auto mv{m_modulus};
     auto bv{b};
     if (bv.m_value >= mv.m_value)
         bv.ModEq(mv);
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated scalar modular addition
-//         pim::EltwiseAddScalarMod(ans.m_data, ans.m_data, bv.ConvertToInt(), mv.ConvertToInt());
-//         return ans;
-//     }
-// #endif
 
     for (size_t i = 0; i < ans.m_data.size(); ++i)
         ans.m_data[i] = ans.m_data[i].ModAddFast(bv, mv);
@@ -228,17 +227,18 @@ NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModAdd(const IntegerType&
 
 template <class IntegerType>
 NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModAddEq(const IntegerType& b) {
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        auto temp = *this;
+        pim::EltwiseAddScalarMod(temp.m_data, m_data, b.ConvertToInt(), m_modulus.ConvertToInt());
+        return *this;
+    }
+#endif
+
     auto mv{m_modulus};
     auto bv{b};
     if (bv.m_value >= mv.m_value)
         bv.ModEq(mv);
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated scalar modular addition
-//         pim::EltwiseAddScalarMod(m_data, m_data, bv.ConvertToInt(), mv.ConvertToInt());
-//         return *this;
-//     }
-// #endif
     // Fallback to CPU implementation
     for (size_t i = 0; i < m_data.size(); ++i)
         m_data[i] = m_data[i].ModAddFast(bv, mv);
@@ -262,16 +262,18 @@ template <class IntegerType>
 NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModAdd(const NativeVectorT& b) const {
     if (m_modulus != b.m_modulus || m_data.size() != b.m_data.size())
         OPENFHE_THROW("ModAdd called on NativeVectorT's with different parameters.");
+
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        NativeVectorT ans(m_data.size(), m_modulus);
+
+        pim::EltwiseAddMod(ans.m_data, m_data, b.m_data, m_modulus.ConvertToInt());
+        return ans;
+    }
+#endif
+
     auto mv{m_modulus};
     auto ans(*this);
-
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated modular addition
-//         pim::EltwiseAddMod(ans.m_data, ans.m_data, b.m_data, mv.ConvertToInt());
-//         return ans;
-//     }
-// #endif
 
     for (size_t i = 0; i < ans.m_data.size(); ++i)
         ans.m_data[i].ModAddFastEq(b[i], mv);
@@ -282,13 +284,13 @@ template <class IntegerType>
 NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModAddEq(const NativeVectorT& b) {
     if (m_data.size() != b.m_data.size() || m_modulus != b.m_modulus)
         OPENFHE_THROW("ModAddEq called on NativeVectorT's with different parameters.");
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated modular addition
-//         pim::EltwiseAddMod(m_data, m_data, b.m_data, m_modulus.ConvertToInt());
-//         return *this;
-//     }
-// #endif
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        auto temp(*this);
+        pim::EltwiseAddMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
+        return *this;
+    }
+#endif
     // Fallback to CPU implementation
     auto mv{m_modulus};
     for (size_t i = 0; i < m_data.size(); ++i)
@@ -298,19 +300,18 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModAddEq(const NativeVec
 
 template <class IntegerType>
 NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModSub(const IntegerType& b) const {
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        NativeVectorT ans(m_data.size(), m_modulus);
+        pim::EltwiseSubScalarMod(ans.m_data, m_data, b.ConvertToInt(), m_modulus.ConvertToInt());
+        return ans;
+    }
+#endif
     auto mv{m_modulus};
     auto bv{b};
     auto ans(*this);
     if (bv.m_value >= mv.m_value)
         bv.ModEq(mv);
-
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated scalar modular subtraction
-//         pim::EltwiseSubScalarMod(ans.m_data, ans.m_data, bv.ConvertToInt(), mv.ConvertToInt());
-//         return ans;
-//     }
-// #endif
 
     for (size_t i = 0; i < ans.m_data.size(); ++i)
         ans[i].ModSubFastEq(bv, mv);
@@ -319,18 +320,18 @@ NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModSub(const IntegerType&
 
 template <class IntegerType>
 NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModSubEq(const IntegerType& b) {
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        auto temp(*this);
+        pim::EltwiseSubScalarMod(m_data, temp.m_data, b.ConvertToInt(), m_modulus.ConvertToInt());
+        return *this;
+    }
+#endif
+
     auto mv{m_modulus};
     auto bv{b};
     if (bv.m_value >= mv.m_value)
         bv.ModEq(mv);
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated scalar modular subtraction
-//         pim::EltwiseSubScalarMod(m_data, m_data, bv.ConvertToInt(), mv.ConvertToInt());
-//         return *this;
-//     }
-// #endif
-    // Fallback to CPU implementation
     for (size_t i = 0; i < m_data.size(); ++i)
         m_data[i].ModSubFastEq(bv, mv);
     return *this;
@@ -340,16 +341,18 @@ template <class IntegerType>
 NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModSub(const NativeVectorT& b) const {
     if (m_data.size() != b.m_data.size() || m_modulus != b.m_modulus)
         OPENFHE_THROW("ModSub called on NativeVectorT's with different parameters.");
+
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        NativeVectorT ans(m_data.size(), m_modulus);
+        pim::EltwiseSubMod(ans.m_data, m_data, b.m_data, m_modulus.ConvertToInt());
+        return ans;
+    }
+#endif
+
     auto mv{m_modulus};
     auto ans(*this);
 
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated modular subtraction
-//         pim::EltwiseSubMod(ans.m_data, ans.m_data, b.m_data, mv.ConvertToInt());
-//         return ans;
-//     }
-// #endif
     for (size_t i = 0; i < ans.m_data.size(); ++i)
         ans[i].ModSubFastEq(b[i], mv);
     return ans;
@@ -360,13 +363,13 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModSubEq(const NativeVec
     if (m_data.size() != b.m_data.size() || m_modulus != b.m_modulus)
         OPENFHE_THROW("ModSubEq called on NativeVectorT's with different parameters.");
 
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated modular subtraction
-//         pim::EltwiseSubMod(m_data, m_data, b.m_data, m_modulus.ConvertToInt());
-//         return *this;
-//     }
-// #endif
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        auto temp(*this);
+        pim::EltwiseSubMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
+        return *this;
+    }
+#endif
 
     // Fallback to CPU implementation
     for (size_t i = 0; i < m_data.size(); ++i)
@@ -376,20 +379,20 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModSubEq(const NativeVec
 
 template <class IntegerType>
 NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModMul(const IntegerType& b) const {
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        NativeVectorT ans(m_data.size(), m_modulus);
+        pim::EltwiseScalarMulMod(ans.m_data, m_data, b.ConvertToInt(), m_modulus.ConvertToInt());
+        return ans;
+    }
+#endif
+
     auto mv{m_modulus};
     auto bv{b};
     auto ans(*this);
     if (bv.m_value >= mv.m_value)
         bv.ModEq(mv);
     auto bconst{bv.PrepModMulConst(mv)};
-
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated scalar modular multiplication
-//         pim::EltwiseScalarMulMod(ans.m_data, ans.m_data, bv.ConvertToInt(), mv.ConvertToInt());
-//         return ans;
-//     }
-// #endif
 
     for (size_t i = 0; i < ans.m_data.size(); ++i)
         ans[i].ModMulFastConstEq(bv, mv, bconst);
@@ -402,14 +405,15 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModMulEq(const IntegerTy
     auto bv{b};
     if (bv.m_value >= mv.m_value)
         bv.ModEq(mv);
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated scalar modular multiplication
-//         pim::EltwiseScalarMulMod(m_data, m_data, bv.ConvertToInt(), mv.ConvertToInt());
-//         return *this;
-//     }
-// #endif
-    // Fallback to CPU implementation
+
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        auto temp(*this);
+        pim::EltwiseScalarMulMod(m_data, temp.m_data, bv.ConvertToInt(), mv.ConvertToInt());
+        return *this;
+    }
+#endif
+
     auto bconst{bv.PrepModMulConst(mv)};
     for (size_t i = 0; i < m_data.size(); ++i)
         m_data[i].ModMulFastConstEq(bv, mv, bconst);
@@ -421,18 +425,17 @@ NativeVectorT<IntegerType> NativeVectorT<IntegerType>::ModMul(const NativeVector
     if (m_data.size() != b.m_data.size() || m_modulus != b.m_modulus)
         OPENFHE_THROW("ModMul called on NativeVectorT's with different parameters.");
 
+#ifdef WITH_PIM_HEXL
+    if (UsePIMAcceleration()) {
+        NativeVectorT ans(m_data.size(), m_modulus);
+        pim::EltwiseMulMod(ans.m_data, m_data, b.m_data, m_modulus.ConvertToInt());
+        return ans;
+    }
+#endif
+
     auto ans(*this);
     uint32_t size(m_data.size());
     auto mv{m_modulus};
-
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated modular multiplication
-//         pim::EltwiseMulMod(ans.m_data, ans.m_data, b.m_data, mv.ConvertToInt());
-//         return ans;
-//     }
-// #endif
-    // Fallback to CPU implementation
 
 #ifdef NATIVEINT_BARRET_MOD
     auto mu{m_modulus.ComputeMu()};
@@ -450,13 +453,13 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModMulEq(const NativeVec
     if (m_data.size() != b.m_data.size() || m_modulus != b.m_modulus)
         OPENFHE_THROW("ModMulEq called on NativeVectorT's with different parameters.");
 
-// #ifdef WITH_PIM_HEXL
-//     if (UsePIMAcceleration()) {
-//         // Use PIM-accelerated modular multiplication
-//         pim::EltwiseMulMod(m_data, m_data, b.m_data, m_modulus.ConvertToInt());
-//         return *this;
-//     }
-// #endif
+    #ifdef WITH_PIM_HEXL
+        if (UsePIMAcceleration()) {
+            auto temp(*this);
+            pim::EltwiseMulMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
+            return *this;
+        }
+    #endif
 
     // Fallback to CPU implementation
     auto mv{m_modulus};

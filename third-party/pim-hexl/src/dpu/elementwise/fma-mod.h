@@ -4,14 +4,14 @@
 
 typedef struct
 {
-  uint64_t mod;       /* modulus  (m)                     */
-  uint64_t scalar;    /* multiplier (k)                   */
+  dpu_word_t mod;       /* modulus  (m)                     */
+  dpu_word_t scalar;    /* multiplier (k)                   */
   uint8_t mod_factor; /* 1 / 2 / 4 / 8  (range check only)*/
   uint8_t has_addend; /* 0 → arg3 absent, 1 → present     */
 } ctx_fma_t;
 
 /* Reduce x < 8·m into [0,m) with ≤3 subtractions */
-static inline uint64_t reduce_8m(uint64_t x, uint64_t m)
+static inline dpu_word_t reduce_8m(dpu_word_t x, dpu_word_t m)
 {
   if (x >= m)
     x -= m;
@@ -22,26 +22,26 @@ static inline uint64_t reduce_8m(uint64_t x, uint64_t m)
   return x;
 }
 
-static void fma_mod_compute(uint64_t *out, const uint64_t *a, const uint64_t *b,
+static void fma_mod_compute(dpu_word_t *out, const dpu_word_t *a, const dpu_word_t *b,
                             uint32_t n, void *ctx_)
 {
   ctx_fma_t *ctx = (ctx_fma_t *)ctx_;
-  const uint64_t m = ctx->mod;
-  const uint64_t scalar = ctx->scalar;
+  const dpu_word_t m = ctx->mod;
+  const dpu_word_t scalar = ctx->scalar;
   const uint8_t addFlg = ctx->has_addend;
 
   for (uint32_t i = 0; i < n; ++i)
   {
 
     /* 1) bring inputs into [0,m) (at most 3 subtractions) */
-    uint64_t x = reduce_8m(a[i], m);
-    uint64_t y = addFlg ? reduce_8m(b[i], m) : 0;
+    dpu_word_t x = reduce_8m(a[i], m);
+    dpu_word_t y = addFlg ? reduce_8m(b[i], m) : 0;
 
     /* 2) multiply-mod without 128-bit */
-    uint64_t prod = mul_mod_u64(x, scalar, m);
+    dpu_word_t prod = mul_mod_u64(x, scalar, m);
 
     /* 3) add + final reduction (single conditional) */
-    uint64_t sum = prod + y;
+    dpu_word_t sum = prod + y;
     if (sum >= m)
       sum -= m;
 
