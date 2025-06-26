@@ -700,7 +700,7 @@ if(WITH_PIM_HEXL)
             add_custom_command(
                 OUTPUT ${DPU_KERNEL}
                 COMMAND ${DPU_CC}
-                        -DNR_TASKLETS=12
+                        -DNR_TASKLETS=16
                         -o ${DPU_KERNEL}
                         ${THIRDPARTYDIR}/pim-hexl/src/dpu/main.c
                 DEPENDS ${THIRDPARTYDIR}/pim-hexl/src/dpu/main.c

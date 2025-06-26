@@ -55,7 +55,9 @@ namespace detail {
 template<typename T>
 void EltwiseAddMod(Vector<T>& destination, const Vector<T>& op1, 
                    const Vector<T>& op2, dpu_word_t modulus) {
+    #ifdef PROFILE                
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(MOD_ADD, op1, destination, modulus, 0, 0, CMP_TRUE, 0, 1, 1, &op2);
     run_kernel(args, std::tie(op1, op2), std::tie(destination));
 }
@@ -64,7 +66,9 @@ void EltwiseAddMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseAddScalarMod(Vector<T>& destination, const Vector<T>& op1, 
                          dpu_word_t scalar, dpu_word_t modulus) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(MOD_ADD_SCALAR, op1, destination, modulus, scalar);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -73,7 +77,9 @@ void EltwiseAddScalarMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseSubMod(Vector<T>& destination, const Vector<T>& op1, 
                    const Vector<T>& op2, dpu_word_t modulus) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(MOD_SUB, op1, destination, modulus, 0, 0, CMP_TRUE, 0, 1, 1, &op2);
     run_kernel(args, std::tie(op1, op2), std::tie(destination));
 }
@@ -82,7 +88,9 @@ void EltwiseSubMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseSubScalarMod(Vector<T>& destination, const Vector<T>& op1, 
                          dpu_word_t scalar, dpu_word_t modulus) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(MOD_SUB_SCALAR, op1, destination, modulus, scalar);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -91,7 +99,9 @@ void EltwiseSubScalarMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseMulMod(Vector<T>& destination, const Vector<T>& op1, 
                    const Vector<T>& op2, dpu_word_t modulus, dpu_word_t mu = 0) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(MOD_MUL, op1, destination, modulus, 0, mu, CMP_TRUE, 0, 1, 1, &op2);
     run_kernel(args, std::tie(op1, op2), std::tie(destination));
 }
@@ -100,7 +110,9 @@ void EltwiseMulMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseScalarMulMod(Vector<T>& destination, const Vector<T>& op1,
                          dpu_word_t scalar, dpu_word_t modulus, dpu_word_t mu = 0) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(MOD_MUL_SCALAR, op1, destination, modulus, scalar, mu);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -109,7 +121,9 @@ void EltwiseScalarMulMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseFMAMod(Vector<T>& destination, const Vector<T>& op1, 
                    const Vector<T>& addend, dpu_word_t scalar, dpu_word_t modulus) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(FMA_MOD, op1, destination, modulus, scalar, 0, CMP_TRUE, 0, 1, 1, &addend);
     run_kernel(args, std::tie(op1, addend), std::tie(destination));
 }
@@ -119,7 +133,9 @@ void EltwiseFMAMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseConditionalAdd(Vector<T>& destination, const Vector<T>& op1, 
                            cmp_t comparison, dpu_word_t bound, dpu_word_t diff) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(CMP_ADD, op1, destination, 0, diff, 0, comparison, bound);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -128,7 +144,9 @@ void EltwiseConditionalAdd(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseConditionalSubMod(Vector<T>& destination, const Vector<T>& op1, 
                               dpu_word_t modulus, cmp_t comparison, dpu_word_t bound, dpu_word_t diff) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
     auto args = detail::make_args(CMP_SUB_MOD, op1, destination, modulus, diff, 0, comparison, bound);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }
@@ -138,7 +156,10 @@ void EltwiseConditionalSubMod(Vector<T>& destination, const Vector<T>& op1,
 template<typename T>
 void EltwiseReduceMod(Vector<T>& destination, const Vector<T>& op1, 
                       dpu_word_t modulus, uint32_t input_factor, uint32_t output_factor) {
+    #ifdef PROFILE
     PROFILE_FUNCTION();
+    #endif
+    
     auto args = detail::make_args(MOD_REDUCE, op1, destination, modulus, 0, 0, CMP_TRUE, 0, input_factor, output_factor);
     run_kernel(args, std::tie(op1), std::tie(destination));
 }

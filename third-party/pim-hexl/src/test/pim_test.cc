@@ -6,11 +6,9 @@
 #include <vector>
 #include <chrono>
 
-class PIMOperationsTest : public ::testing::Test {
+class PIM_Test : public ::testing::Test {
 protected:
-    void SetUp() override {
-        pim::Init(256);
-        
+    void SetUp() override {        
         modulus = (1ULL << 60) - 59;  
         vector_size = 8192;
         
@@ -54,7 +52,7 @@ protected:
     std::uniform_int_distribution<uint64_t> dist;
 };
 
-TEST_F(PIMOperationsTest, EltwiseAddMod) {
+TEST_F(PIM_Test, EltwiseAddMod) {
     auto vec1 = createRandomVector(vector_size);
     auto vec2 = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
@@ -70,7 +68,7 @@ TEST_F(PIMOperationsTest, EltwiseAddMod) {
     }
 }
 
-TEST_F(PIMOperationsTest, EltwiseAddScalarMod) {
+TEST_F(PIM_Test, EltwiseAddScalarMod) {
     auto vec1 = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
     uint64_t scalar = 12345;
@@ -84,7 +82,7 @@ TEST_F(PIMOperationsTest, EltwiseAddScalarMod) {
     }
 }
 
-TEST_F(PIMOperationsTest, EltwiseSubMod) {
+TEST_F(PIM_Test, EltwiseSubMod) {
     auto vec1 = createRandomVector(vector_size);
     auto vec2 = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
@@ -98,7 +96,7 @@ TEST_F(PIMOperationsTest, EltwiseSubMod) {
     }
 }
 
-TEST_F(PIMOperationsTest, EltwiseSubScalarMod) {
+TEST_F(PIM_Test, EltwiseSubScalarMod) {
     auto vec1 = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
     uint64_t scalar = 54321;
@@ -112,7 +110,7 @@ TEST_F(PIMOperationsTest, EltwiseSubScalarMod) {
     }
 }
 
-TEST_F(PIMOperationsTest, EltwiseMulMod) {
+TEST_F(PIM_Test, EltwiseMulMod) {
     auto vec1 = createRandomVector(vector_size);
     auto vec2 = createRandomVector(vector_size);
     pim::Vector<uint64_t> r1(vector_size);
@@ -126,7 +124,7 @@ TEST_F(PIMOperationsTest, EltwiseMulMod) {
     }
 }
 
-TEST_F(PIMOperationsTest, EltwiseScalarMulMod) {
+TEST_F(PIM_Test, EltwiseScalarMulMod) {
     auto vec1 = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
     uint64_t scalar = 7;
@@ -140,7 +138,7 @@ TEST_F(PIMOperationsTest, EltwiseScalarMulMod) {
     }
 }
 
-TEST_F(PIMOperationsTest, EltwiseFMAMod) {
+TEST_F(PIM_Test, EltwiseFMAMod) {
     auto vec1 = createRandomVector(vector_size);
     auto addend = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
@@ -156,7 +154,7 @@ TEST_F(PIMOperationsTest, EltwiseFMAMod) {
     }
 }
 
-TEST_F(PIMOperationsTest, EltwiseConditionalAdd) {
+TEST_F(PIM_Test, EltwiseConditionalAdd) {
     auto vec1 = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
     uint64_t bound = modulus / 2;
@@ -170,7 +168,7 @@ TEST_F(PIMOperationsTest, EltwiseConditionalAdd) {
             << "Mismatch at index " << i;
     }
 }
-TEST_F(PIMOperationsTest, EltwiseConditionalSubMod) {
+TEST_F(PIM_Test, EltwiseConditionalSubMod) {
     auto vec1 = createRandomVector(vector_size);
     pim::Vector<uint64_t> result(vector_size);
     uint64_t bound = modulus / 2;
@@ -185,7 +183,7 @@ TEST_F(PIMOperationsTest, EltwiseConditionalSubMod) {
     }
 }
 
-// TEST_F(PIMOperationsTest, EltwiseReduceMod) {
+// TEST_F(PIM_Test, EltwiseReduceMod) {
 //     auto vec1 = createRandomVector(vector_size);
 //     pim::Vector<uint64_t> result(vector_size);
 //     uint64_t mod = modulus;

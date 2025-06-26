@@ -41,14 +41,14 @@ public:
     }
 
      void add_time(const std::string& name, long microseconds) {
-        // std::lock_guard<std::mutex> lock(mutex_); // REMOVED - single threaded
+        std::lock_guard<std::mutex> lock(mutex_); 
         times_[name] += microseconds;
         counts_[name]++;
         samples_[name].push_back(microseconds);
     }
 
     void print_report() const {
-        // std::lock_guard<std::mutex> lock(mutex_); // REMOVED - single threaded
+        std::lock_guard<std::mutex> lock(mutex_); 
         
         std::cout << "\n" << std::string(120, '=') << std::endl;
         std::cout << "                                      PERFORMANCE PROFILING REPORT" << std::endl;
@@ -157,8 +157,7 @@ public:
     };
     
     Statistics get_statistics(const std::string& operation_name) const {
-        // std::lock_guard<std::mutex> lock(mutex_); // REMOVED - single threaded
-        
+        std::lock_guard<std::mutex> lock(mutex_);
         Statistics stats;
         
         std::map<std::string, std::vector<long> >::const_iterator it = samples_.find(operation_name);
@@ -198,7 +197,7 @@ public:
     }
     
     void clear() {
-        // std::lock_guard<std::mutex> lock(mutex_); // REMOVED - single threaded
+        std::lock_guard<std::mutex> lock(mutex_);
         times_.clear();
         counts_.clear();
         samples_.clear();

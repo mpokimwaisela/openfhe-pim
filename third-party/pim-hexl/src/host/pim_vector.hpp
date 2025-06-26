@@ -333,7 +333,9 @@ public:
      * to ensure data is synchronized before DPU kernel execution.
      */
     void commit() const {
+        #ifdef PROFILE
         PROFILE_FUNCTION();
+        #endif
         if (state_ != CopyState::HOST_DIRTY) return;
         auto &mgr = PIMManager::instance();
         // std::cout << "Committing " << shards_.size() << " shards to DPU memory\n";
@@ -424,7 +426,9 @@ private:
      * @param fill Value to fill elements with
      */
     void build(size_t n, const T &fill) {
+        #ifdef PROFILE
       PROFILE_FUNCTION();
+        #endif
       auto &mgr = PIMManager::instance();
       if (mgr.num_dpus() == 0) PIMManager::init();
 
@@ -486,7 +490,9 @@ private:
      * @brief Pull fresh data from DPU to host memory
      */
     void pull_all() const {
+        #ifdef PROFILE
         PROFILE_FUNCTION();
+        #endif
         if (state_ != CopyState::PIM_FRESH) return;
         auto &mgr = PIMManager::instance();
 
@@ -525,7 +531,6 @@ private:
 template <typename... InBufs, typename... OutBufs>
 void run_kernel(const dpu_arguments_t &args, std::tuple<InBufs &...> in,
                 std::tuple<OutBufs &...> out) {
-    // PROFILE_FUNCTION();
     std::apply([](auto &...bs) { (bs.commit(), ...); }, in);
 
     auto &mgr = PIMManager::instance();

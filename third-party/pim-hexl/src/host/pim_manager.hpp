@@ -11,6 +11,7 @@
 #include <dpu>
 #include <atomic>
 
+#include "common.h"
 #include "mram_allocator.hpp"
 
 using namespace dpu;
@@ -57,7 +58,7 @@ public:
    * @param nr_dpus Number of DPUs to allocate (default: 256)
    * @param elf Path to the DPU kernel binary (default: "main.dpu")
    */
-  static void init(unsigned nr_dpus = 256, std::string elf = "main.dpu") {
+  static void init(unsigned nr_dpus = DPU_ALLOCATE_ALL, std::string elf = "main.dpu") {
 
     PIMManager &m = instance();
 
@@ -76,7 +77,7 @@ public:
       throw std::runtime_error("No DPUs available for PIMManager initialization");
     }
     
-    std::cout << "PIMManager: Initializing with " << nr_dpus <<" DPUs" << std::endl;
+    LOG_INFO("PIMManager => Initialized %u DPUs", nr_dpus);
 
     m.alloc_.reserve(nr_dpus);
     for (unsigned i = 0; i < nr_dpus; ++i)
