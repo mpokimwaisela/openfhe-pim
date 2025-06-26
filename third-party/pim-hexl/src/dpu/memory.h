@@ -8,7 +8,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define CHUNK_BYTES 1 << 9 // 256 bytes per chunk
+#define CHUNK_BYTES 1 << 8 // 256 bytes per chunk
 #define CHUNK_ELEMS (CHUNK_BYTES / sizeof(dpu_word_t)) // 32 elements per chunk
 
 __host dpu_arguments_t DPU_INPUT_ARGUMENTS;

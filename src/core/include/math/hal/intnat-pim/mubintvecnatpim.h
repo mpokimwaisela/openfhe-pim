@@ -47,7 +47,6 @@
 
 // Include PIM-HEXL header for conditional PIM functionality
 #include "pim.hpp"
-#include "pim_operations.hpp"
 
 #include <algorithm>
 #include <initializer_list>
@@ -468,7 +467,7 @@ public:
         if (UsePIMAcceleration()) {
 
             auto temp(*this);
-            pim::EltwiseAddMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
+            pim::EltwiseAddMod(m_data, b.m_data, m_data, m_modulus.ConvertToInt());
 
             return *this;
         }
@@ -551,9 +550,7 @@ public:
     NativeVectorT& ModMulNoCheckEq(const NativeVectorT& b) {
 #ifdef WITH_PIM_HEXL
         if (UsePIMAcceleration()) {
-            auto temp(*this);
-            pim::EltwiseMulMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
-
+            pim::EltwiseMulMod(m_data, b.m_data, m_data, m_modulus.ConvertToInt());
             return *this;
         }
 #endif

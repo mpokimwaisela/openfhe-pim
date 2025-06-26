@@ -1,4 +1,3 @@
-// ─────────────────────────── profiler.hpp ───────────────────────────
 #pragma once
 
 #include <chrono>
@@ -34,6 +33,13 @@ public:
         static Profiler prof;
         return prof;
     }
+
+        ~Profiler() {
+        if (!times_.empty()) {
+            print_report();
+        }
+    }
+
      void add_time(const std::string& name, long microseconds) {
         // std::lock_guard<std::mutex> lock(mutex_); // REMOVED - single threaded
         times_[name] += microseconds;
@@ -44,9 +50,9 @@ public:
     void print_report() const {
         // std::lock_guard<std::mutex> lock(mutex_); // REMOVED - single threaded
         
-        std::cout << "\n" << std::string(110, '=') << std::endl;
-        std::cout << "                           PERFORMANCE PROFILING REPORT" << std::endl;
-        std::cout << std::string(110, '=') << std::endl;
+        std::cout << "\n" << std::string(120, '=') << std::endl;
+        std::cout << "                                      PERFORMANCE PROFILING REPORT" << std::endl;
+        std::cout << std::string(120, '=') << std::endl;
         
         // Calculate total time
         long total_time = 0;
@@ -56,14 +62,14 @@ public:
         
         // Print header with additional columns
         std::cout << std::left << std::setw(25) << "Operation" 
-                  << std::right << std::setw(10) << "Total(μs)" 
-                  << std::setw(10) << "Avg(μs)" 
-                  << std::setw(10) << "Min(μs)"
-                  << std::setw(10) << "Max(μs)"
-                  << std::setw(12) << "StdDev(μs)"
-                  << std::setw(8) << "Count" 
-                  << std::setw(8) << "%" << std::endl;
-        std::cout << std::string(110, '-') << std::endl;
+                  << std::right << std::setw(15) << "Total(μs)" 
+                  << std::setw(15) << "Avg(μs)" 
+                  << std::setw(15) << "Min(μs)"
+                  << std::setw(15) << "Max(μs)"
+                  << std::setw(15) << "StdDev(μs)"
+                  << std::setw(10) << "Count" 
+                  << std::setw(10) << "%" << std::endl;
+        std::cout << std::string(120, '-') << std::endl;
         
         // Sort by total time (descending)
         std::vector<std::pair<std::string, long> > sorted_times(times_.begin(), times_.end());
@@ -118,20 +124,20 @@ public:
             // Print row with all statistics
             std::cout << std::left << std::setw(25) << name
                       << std::right << std::setw(10) << time
-                      << std::setw(10) << std::fixed << std::setprecision(1) << avg
-                      << std::setw(10) << min_time
-                      << std::setw(10) << max_time
-                      << std::setw(12) << std::fixed << std::setprecision(1) << std_dev
-                      << std::setw(8) << count
-                      << std::setw(7) << std::fixed << std::setprecision(1) << percentage << "%"
+                      << std::setw(17) << std::fixed << std::setprecision(1) << avg
+                      << std::setw(12) << min_time
+                      << std::setw(14) << max_time
+                      << std::setw(13) << std::fixed << std::setprecision(1) << std_dev
+                      << std::setw(12) << count
+                      << std::setw(12) << std::fixed << std::setprecision(1) << percentage << "%"
                       << std::endl;
         }
         
-        std::cout << std::string(110, '-') << std::endl;
+        std::cout << std::string(120, '-') << std::endl;
         std::cout << std::left << std::setw(25) << "TOTAL"
                   << std::right << std::setw(10) << total_time << " μs ("
                   << std::fixed << std::setprecision(2) << (total_time / 1000.0) << " ms)" << std::endl;
-        std::cout << std::string(110, '=') << std::endl;
+        std::cout << std::string(120, '=') << std::endl;
     }
     
     /**

@@ -13,16 +13,13 @@ BARRIER_INIT(my_barrier, NR_TASKLETS);
 
 int (*kernels[NR_KERNELS])(void) = {mod_add, mod_add_scalar, cmp_add,
                                     cmp_sub_mod, fma_mod, mod_sub,
-                                    mod_sub_scalar, mod_mul, reduce_mod, ntt_stage};
+                                    mod_sub_scalar, mod_mul, mod_mul_scalar ,reduce_mod, ntt_stage};
 
 int main()
 {
   unsigned tid = me();
   if (tid == 0){
     mem_reset();
-#ifdef DEBUG
-    printf("NR_TASKLETS %u:\n", NR_TASKLETS);
-#endif
   }
 
   barrier_wait(&my_barrier);

@@ -112,27 +112,28 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::operator=(std::initializ
  */
 template <class IntegerType>
 void NativeVectorT<IntegerType>::SwitchModulus(const IntegerType& modulus) {
-    // #ifdef WITH_PIM_HEXL
-    //     if (UsePIMAcceleration()) {
-    //         IntegerType halfQ{m_modulus >> 1};
-    //         IntegerType diff{(m_modulus > modulus) ? (m_modulus - modulus) : (modulus - m_modulus)};
-
-    //         if (modulus > m_modulus) {
-    //             pim::EltwiseConditionalAdd(m_data, m_data,
-    //                                      pim::GREATER_THAN,
-    //                                      halfQ.ConvertToInt(),
-    //                                      diff.ConvertToInt());
-    //         } else {
-    //             pim::EltwiseConditionalSubMod(m_data, m_data,
-    //                                         modulus.ConvertToInt(),
-    //                                         pim::GREATER_THAN,
-    //                                         halfQ.ConvertToInt(),
-    //                                         diff.ConvertToInt());
-    //         }
-    //         this->SetModulus(modulus);
-    //         return;
-    //     }
-    // #endif
+    #ifdef WITH_PIM_HEXL
+        if (UsePIMAcceleration()) {
+            IntegerType halfQ{m_modulus >> 1};
+            IntegerType diff{(m_modulus > modulus) ? (m_modulus - modulus) : (modulus - m_modulus)};
+            auto temp = *this;
+            if (modulus > m_modulus) {
+                
+                pim::EltwiseConditionalAdd(m_data, temp.m_data,
+                                         pim::GREATER_THAN,
+                                         halfQ.ConvertToInt(),
+                                         diff.ConvertToInt());
+            } else {
+                pim::EltwiseConditionalSubMod(m_data, temp.m_data,
+                                            modulus.ConvertToInt(),
+                                            pim::GREATER_THAN,
+                                            halfQ.ConvertToInt(),
+                                            diff.ConvertToInt());
+            }
+            this->SetModulus(modulus);
+            return;
+        }
+    #endif
 
     // Original CPU fallback code
     IntegerType halfQ{m_modulus >> 1};
@@ -455,8 +456,7 @@ NativeVectorT<IntegerType>& NativeVectorT<IntegerType>::ModMulEq(const NativeVec
 
     #ifdef WITH_PIM_HEXL
         if (UsePIMAcceleration()) {
-            auto temp(*this);
-            pim::EltwiseMulMod(m_data, temp.m_data, b.m_data, m_modulus.ConvertToInt());
+            pim::EltwiseMulMod(m_data, b.m_data, m_data, m_modulus.ConvertToInt());
             return *this;
         }
     #endif

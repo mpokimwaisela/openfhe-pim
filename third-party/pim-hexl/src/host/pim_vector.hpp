@@ -1,6 +1,5 @@
-// ─────────────────────────── host.hpp ───────────────────────────
 /**
- * @file host.hpp
+ * @file pim_vector.hpp
  * @brief Main header for PIM (Processing-In-Memory) host-side operations
  * 
  * This file provides the primary interface for PIM operations including:
@@ -32,8 +31,8 @@
 
 
 // Project-specific includes
-#include "host_args.hpp"
-#include "vector_iterator.hpp"
+#include "pim_launch_args.hpp"
+#include "pim_vector_iterator.hpp"
 #include "mram_allocator.hpp"
 #include "pim_manager.hpp"
 #include "profiler.hpp"
@@ -425,7 +424,7 @@ private:
      * @param fill Value to fill elements with
      */
     void build(size_t n, const T &fill) {
-    //   PROFILE_FUNCTION();
+      PROFILE_FUNCTION();
       auto &mgr = PIMManager::instance();
       if (mgr.num_dpus() == 0) PIMManager::init();
 
@@ -487,7 +486,7 @@ private:
      * @brief Pull fresh data from DPU to host memory
      */
     void pull_all() const {
-        // PROFILE_FUNCTION();
+        PROFILE_FUNCTION();
         if (state_ != CopyState::PIM_FRESH) return;
         auto &mgr = PIMManager::instance();
 

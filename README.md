@@ -1,6 +1,7 @@
-OpenFHE - Open-Source Fully Homomorphic Encryption Library
+# OpenFHE UPMEM-PIM Acceleration
+This repository contains code that intergrate UPMEM-PIM.
 
-## Installation with UPMEM-PIM Project - Only on Linux platforms
+## Installation
 
 **Make sure that you have the UPMEM TOOLCHAIN installed !!**
 
@@ -31,5 +32,4 @@ The backend PIM implementation is located in the `third-party/pim-hexl` director
 
 There are several operational tasks needed to complete the backend implementation:
 - Memory accesses for the pim vector abstraction needs to be safe.
-- Computational Bugs in some kernels ??
 - Handling PIM parallel threads access

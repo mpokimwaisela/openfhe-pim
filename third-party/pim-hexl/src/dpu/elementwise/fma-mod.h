@@ -51,7 +51,6 @@ static void fma_mod_compute(dpu_word_t *out, const dpu_word_t *a, const dpu_word
 
 static inline int fma_mod()
 {
-  printf("FMA_MOD kernel started\n");
   ctx_fma_t ctx = {.mod = DPU_INPUT_ARGUMENTS.mod,
                    .scalar = DPU_INPUT_ARGUMENTS.scalar,
                    .mod_factor = DPU_INPUT_ARGUMENTS.mod_factor,

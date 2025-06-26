@@ -29,7 +29,7 @@ static void reduce_mod_compute(dpu_word_t *out,
   const dpu_word_t f_out = ctx->out_factor;
 
   const dpu_word_t bound_1m = m;
-  const dpu_word_t bound_2m = m << 1; /* 2·m */
+  const dpu_word_t bound_2m = m << 1; 
 
   for (uint32_t i = 0; i < n; ++i)
   {
@@ -43,12 +43,12 @@ static void reduce_mod_compute(dpu_word_t *out,
 
     else if (f_in == 4)
     {
-      if (f_out == 1) /* want [0, m)  */
+      if (f_out == 1) 
         x = reduce_to_bound(x, m, bound_1m);
       else
-      { /* want [0, 2m) */
+      { 
         if (x >= bound_2m)
-          x -= bound_2m; /* x mod 2m */
+          x -= bound_2m; 
       }
     }
 
@@ -56,7 +56,7 @@ static void reduce_mod_compute(dpu_word_t *out,
     {
       dpu_word_t target = (f_out == 2) ? bound_2m : bound_1m;
       while (x >= target)
-        x -= m; /* worst-case m times */
+        x -= m; 
     }
 
     out[i] = x;

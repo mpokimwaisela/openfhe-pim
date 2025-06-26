@@ -7,7 +7,7 @@
 
 static inline dpu_array_t
 make_array(uint32_t off, uint32_t elems,
-           uint32_t elem_size_bytes = sizeof(uint64_t))
+           uint32_t elem_size_bytes = sizeof(dpu_word_t))
 {
     return dpu_array_t{
         .offset        = off,
@@ -27,6 +27,7 @@ public:
 
     ArgsBuilder& kernel(pimop_t k)          { a_.kernel = k; return *this; }
     ArgsBuilder& mod(uint64_t m)            { a_.mod    = m; return *this; }
+    ArgsBuilder& mu(uint64_t m)             { a_.mu     = m; return *this; } // for Barrett reduction
     ArgsBuilder& scalar(uint64_t s)         { a_.scalar = s; return *this; }
     ArgsBuilder& cmp(cmp_t c)               { a_.cmp    = c; return *this; }
     ArgsBuilder& bound(uint64_t b)          { a_.bound  = b; return *this; }
@@ -63,6 +64,7 @@ inline void debug_print_args(const dpu_arguments_t& args, std::ostream& os = std
       case MOD_SUB:           os << "MOD_SUB"; break;
       case MOD_SUB_SCALAR:    os << "MOD_SUB_SCALAR"; break;
       case MOD_MUL:           os << "MOD_MUL"; break;
+      case MOD_MUL_SCALAR:    os << "MOD_MUL_SCALAR"; break;
       case MOD_REDUCE:        os << "MOD_REDUCE"; break;
       case NTT_STAGE:        os << "MOD_REDUCE"; break;
     }
