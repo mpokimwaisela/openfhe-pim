@@ -54,6 +54,11 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <type_traits>
+#include <cstring>      // std::memcpy
+#include <algorithm>    // std::transform
+#include <execution>    // C++17 parallel policies (optional)
+
 
 // the following should be set to 1 in order to have native vector use block
 // allocations then determine if you want dynamic or static allocations by
@@ -113,37 +118,112 @@ private:
 
 #ifdef WITH_PIM_HEXL
     // Helper method to set up PIM serialization/deserialization hooks
+    // void setup_pim_serialization() {
+    //     m_data.set_serializer([](const pim::ShardedVector<IntegerType>& shards) -> pim::ShardedVector<dpu_word_t> {
+    //         pim::ShardedVector<dpu_word_t> result;
+    //         result.reserve(shards.size());
+
+    //         // for (const auto& shard : shards) {
+    //         //     std::vector<dpu_word_t> raw_shard;
+    //         //     raw_shard.reserve(shard.size());
+
+    //         //     for (const auto& item : shard) {
+    //         //         raw_shard.push_back(static_cast<dpu_word_t>(item.ConvertToInt()));
+    //         //     }
+
+    //         //     result.emplace_back(std::move(raw_shard));
+    //         // }
+    //         return result;
+    //     });
+
+    //     m_data.set_deserializer(
+    //         [](const pim::ShardedVector<dpu_word_t>& raw_shards, pim::ShardedVector<IntegerType>& vec) {
+    //             vec.resize(raw_shards.size());
+
+    //             // for (size_t shard_idx = 0; shard_idx < raw_shards.size(); ++shard_idx) {
+    //             //     const auto& raw = raw_shards[shard_idx];
+    //             //     auto& out       = vec[shard_idx];
+    //             //     out.resize(raw.size());
+
+    //             //     for (size_t i = 0; i < raw.size(); ++i) {
+    //             //         out[i] = IntegerType(raw[i]);
+    //             //     }
+    //             // }
+    //         });
+    // }
+
     void setup_pim_serialization() {
-    m_data.set_serializer([](const pim::ShardedVector<IntegerType>& shards) -> pim::ShardedVector<dpu_word_t> {
-        pim::ShardedVector<dpu_word_t> result;
-        result.reserve(shards.size());
+        // Safety baseline: dpu_word_t must be trivially copyable for bulk memcpy.
+        static_assert(std::is_trivially_copyable<dpu_word_t>::value, "dpu_word_t must be trivially copyable");
 
-        for (const auto& shard : shards) {
-            std::vector<dpu_word_t> raw_shard;
-            raw_shard.reserve(shard.size());
+        m_data.set_serializer([](const pim::ShardedVector<IntegerType>& shards) -> pim::ShardedVector<dpu_word_t> {
+            pim::ShardedVector<dpu_word_t> result;
+            result.resize(shards.size());
 
-            for (const auto& item : shard) {
-                raw_shard.push_back(static_cast<dpu_word_t>(item.ConvertToInt()));
-            }
+            // Fast-path only when both types are trivially copyable and same size.
+            // (Standard layout check is a conservative extra.)
+            constexpr bool trivial_fast_path =
+                std::is_trivially_copyable<IntegerType>::value && std::is_trivially_copyable<dpu_word_t>::value &&
+                std::is_standard_layout<IntegerType>::value && std::is_standard_layout<dpu_word_t>::value &&
+                sizeof(IntegerType) == sizeof(dpu_word_t);
 
-            result.emplace_back(std::move(raw_shard));
-        }
-    return result;
-    });
-        
-     m_data.set_deserializer([](const pim::ShardedVector<dpu_word_t>& raw_shards, pim::ShardedVector<IntegerType>& vec) {
-        vec.resize(raw_shards.size());
+            // Use sequential by default; flip to par_unseq if your allocator & environment are thread-safe.
+            auto policy = std::execution::seq;
+            // auto policy = std::execution::par_unseq;
 
-        for (size_t shard_idx = 0; shard_idx < raw_shards.size(); ++shard_idx) {
-            const auto& raw = raw_shards[shard_idx];
-            auto& out = vec[shard_idx];
-            out.resize(raw.size());
+            std::transform(policy, shards.begin(), shards.end(), result.begin(),
+                           [&](const auto& shard) -> std::vector<dpu_word_t> {
+                               std::vector<dpu_word_t> out;
+                               out.resize(shard.size());
 
-            for (size_t i = 0; i < raw.size(); ++i) {
-                out[i] = IntegerType(raw[i]);
-            }
-        }
-    });
+                               if constexpr (trivial_fast_path) {
+                                   // Bulk copy bytes; avoids per-element work.
+                                   if (!shard.empty()) {
+                                       std::memcpy(out.data(), shard.data(), shard.size() * sizeof(dpu_word_t));
+                                   }
+                               }
+                               else {
+                                   // General path: element-wise conversion
+                                   std::transform(shard.begin(), shard.end(), out.begin(),
+                                                  [](const auto& item) -> dpu_word_t {
+                                                      return static_cast<dpu_word_t>(item.ConvertToInt());
+                                                  });
+                               }
+                               return out;
+                           });
+
+            return result;
+        });
+
+        m_data.set_deserializer(
+            [](const pim::ShardedVector<dpu_word_t>& raw_shards, pim::ShardedVector<IntegerType>& vec) {
+                vec.resize(raw_shards.size());
+
+                constexpr bool trivial_fast_path =
+                    std::is_trivially_copyable<IntegerType>::value && std::is_trivially_copyable<dpu_word_t>::value &&
+                    std::is_standard_layout<IntegerType>::value && std::is_standard_layout<dpu_word_t>::value &&
+                    sizeof(IntegerType) == sizeof(dpu_word_t);
+
+                auto policy = std::execution::seq;
+                // auto policy = std::execution::par_unseq;
+
+                std::transform(policy, raw_shards.begin(), raw_shards.end(), vec.begin(),
+                               [&](const auto& raw) -> std::vector<IntegerType> {
+                                   std::vector<IntegerType> out;
+                                   out.resize(raw.size());
+
+                                   if constexpr (trivial_fast_path) {
+                                       if (!raw.empty()) {
+                                           std::memcpy(out.data(), raw.data(), raw.size() * sizeof(dpu_word_t));
+                                       }
+                                   }
+                                   else {
+                                       std::transform(raw.begin(), raw.end(), out.begin(),
+                                                      [](dpu_word_t w) -> IntegerType { return IntegerType(w); });
+                                   }
+                                   return out;
+                               });
+            });
     }
 
     // Helper method to check if PIM acceleration should be used
@@ -223,8 +303,7 @@ public:
    *
    * @param &&bigVector is the native vector to be moved.
    */
-    NativeVectorT(NativeVectorT&& v) noexcept
-        : m_modulus{std::move(v.m_modulus)}, m_data{std::move(v.m_data)} {
+    NativeVectorT(NativeVectorT&& v) noexcept : m_modulus{std::move(v.m_modulus)}, m_data{std::move(v.m_data)} {
 #ifdef WITH_PIM_HEXL
         setup_pim_serialization();
 #endif
@@ -465,7 +544,6 @@ public:
     NativeVectorT& ModAddNoCheckEq(const NativeVectorT& b) {
 #ifdef WITH_PIM_HEXL
         if (UsePIMAcceleration()) {
-
             auto temp(*this);
             pim::EltwiseAddMod(m_data, b.m_data, m_data, m_modulus.ConvertToInt());
 
@@ -550,7 +628,14 @@ public:
     NativeVectorT& ModMulNoCheckEq(const NativeVectorT& b) {
 #ifdef WITH_PIM_HEXL
         if (UsePIMAcceleration()) {
+            // #ifdef NATIVEINT_BARRET_MOD
+            //         auto mu{m_modulus.ComputeMu()};
+            //         pim::EltwiseMulMod(m_data, b.m_data, m_data, m_modulus.ConvertToInt(), mu.ConvertToInt());
+
+            // #else
             pim::EltwiseMulMod(m_data, b.m_data, m_data, m_modulus.ConvertToInt());
+
+            // #endif
             return *this;
         }
 #endif
@@ -786,7 +871,6 @@ public:
 }  // namespace intnatpim
 
 namespace cereal {
-
 //! Serialization for vector of NativeInteger
 
 template <class Archive, class A>

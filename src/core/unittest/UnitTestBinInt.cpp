@@ -46,8 +46,6 @@
 
 #include <iostream>
 
-#define PROFILE
-
 using namespace lbcrypto;
 
 extern bool TestB2;

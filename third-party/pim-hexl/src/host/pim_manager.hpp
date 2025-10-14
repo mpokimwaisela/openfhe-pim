@@ -17,7 +17,6 @@
 using namespace dpu;
 
 
-
 namespace pim {
 
 template<typename T>
@@ -29,14 +28,12 @@ inline std::vector<std::uint8_t> bytes_from(const void *p, std::size_t n) {
   return {b, b + n};
 }
 
-static std::atomic<bool> shutdown_mode{false};
+inline std::atomic<bool> shutdown_mode{false};
 
 struct ShutdownHandler {
-    ~ShutdownHandler() {
-        shutdown_mode.store(true);
-    }
+    ~ShutdownHandler() { shutdown_mode.store(true, std::memory_order_relaxed); }
 };
-static ShutdownHandler shutdown_handler;
+inline ShutdownHandler shutdown_handler;
 
 /**
  * @class PIMManager
@@ -55,7 +52,7 @@ private:
 public:
   /**
    * @brief Initialize the PIM system with specified number of DPUs
-   * @param nr_dpus Number of DPUs to allocate (default: 256)
+   * @param nr_dpus Number of DPUs to allocate (default: DPU_ALLOCATE_ALL)
    * @param elf Path to the DPU kernel binary (default: "main.dpu")
    */
   static void init(unsigned nr_dpus = DPU_ALLOCATE_ALL, std::string elf = "main.dpu") {
@@ -105,9 +102,13 @@ public:
   unsigned num_dpus() const { return dpu_n_; }
 
 private:
+  PIMManager() = default;
 
 
 public:
+  ~PIMManager() {
+    shutdown_mode.store(true, std::memory_order_relaxed);
+  }
   /**
    * @brief Scatter different data to each DPU
    * @param per_dpu Vector of data buffers, one per DPU
@@ -224,7 +225,6 @@ public:
   }
 
 private:
-  PIMManager() = default;
   /**
    * @brief Ensure DPU kernel is loaded
    */

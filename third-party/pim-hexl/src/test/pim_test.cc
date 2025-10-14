@@ -8,22 +8,25 @@
 
 class PIM_Test : public ::testing::Test {
 protected:
-    void SetUp() override {        
-        modulus = (1ULL << 60) - 59;  
-        vector_size = 8192;
+    void SetUp() override {   
+
+        modulus = (1ULL << 60) - 13;  
+
+        vector_size = 8192;  // Size of each vector in elements
         
         rng.seed(42);
                 
-        uint64_t lo = modulus-8192;
-        uint64_t hi = modulus - 1;
-        dist = std::uniform_int_distribution<uint64_t>(lo, hi);
+        dpu_word_t lo = modulus-vector_size;
+        dpu_word_t hi = modulus - 1;
+        dist = std::uniform_int_distribution<dpu_word_t>(lo, hi);
+
     }
     
     void TearDown() override {
     }
     
-    pim::Vector<uint64_t> createRandomVector(size_t size) {
-        pim::Vector<uint64_t> vec(size);
+    pim::Vector<dpu_word_t> createRandomVector(size_t size) {
+        pim::Vector<dpu_word_t> vec(size);
         for (size_t i = 0; i < size; ++i) {
             vec[i] = dist(rng);
         }
@@ -31,36 +34,36 @@ protected:
     }
 
     
-    uint64_t modAdd(uint64_t a, uint64_t b, uint64_t mod) {
+    dpu_word_t modAdd(dpu_word_t a, dpu_word_t b, dpu_word_t mod) {
         return (a + b) % mod;
     }
     
-    uint64_t modSub(uint64_t a, uint64_t b, uint64_t mod) {
+    dpu_word_t modSub(dpu_word_t a, dpu_word_t b, dpu_word_t mod) {
         return (a >= b) ? (a - b) : (mod - (b - a));
     }
     
-    uint64_t modMul(uint64_t a, uint64_t b, uint64_t mod) {
+    dpu_word_t modMul(dpu_word_t a, dpu_word_t b, dpu_word_t mod) {
         __uint128_t exp128 = (__uint128_t)a * b % mod;
-        return (uint64_t)exp128;
+        return (dpu_word_t)exp128;
     }
 
 protected:
-    uint64_t modulus;
+    dpu_word_t modulus;
     size_t vector_size;
-    uint64_t mu; 
+    dpu_word_t mu; 
     std::mt19937 rng;
-    std::uniform_int_distribution<uint64_t> dist;
+    std::uniform_int_distribution<dpu_word_t> dist;
 };
 
 TEST_F(PIM_Test, EltwiseAddMod) {
     auto vec1 = createRandomVector(vector_size);
     auto vec2 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
+    pim::Vector<dpu_word_t> result(vector_size);
     
     pim::EltwiseAddMod(result, vec1, vec2, modulus);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = modAdd(vec1[i], vec2[i], modulus);
+        dpu_word_t expected = modAdd(vec1[i], vec2[i], modulus);
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i 
             << ": got " << result[i] 
@@ -70,13 +73,13 @@ TEST_F(PIM_Test, EltwiseAddMod) {
 
 TEST_F(PIM_Test, EltwiseAddScalarMod) {
     auto vec1 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
-    uint64_t scalar = 12345;
+    pim::Vector<dpu_word_t> result(vector_size);
+    dpu_word_t scalar = 12345;
     
     pim::EltwiseAddScalarMod(result, vec1, scalar, modulus);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = modAdd(vec1[i], scalar, modulus);
+        dpu_word_t expected = modAdd(vec1[i], scalar, modulus);
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i;
     }
@@ -85,12 +88,12 @@ TEST_F(PIM_Test, EltwiseAddScalarMod) {
 TEST_F(PIM_Test, EltwiseSubMod) {
     auto vec1 = createRandomVector(vector_size);
     auto vec2 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
+    pim::Vector<dpu_word_t> result(vector_size);
     
     pim::EltwiseSubMod(result, vec1, vec2, modulus);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = modSub(vec1[i], vec2[i], modulus);
+        dpu_word_t expected = modSub(vec1[i], vec2[i], modulus);
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i;
     }
@@ -98,13 +101,13 @@ TEST_F(PIM_Test, EltwiseSubMod) {
 
 TEST_F(PIM_Test, EltwiseSubScalarMod) {
     auto vec1 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
-    uint64_t scalar = 54321;
+    pim::Vector<dpu_word_t> result(vector_size);
+    dpu_word_t scalar = 54321;
     
     pim::EltwiseSubScalarMod(result, vec1, scalar, modulus);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = modSub(vec1[i], scalar, modulus);
+        dpu_word_t expected = modSub(vec1[i], scalar, modulus);
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i;
     }
@@ -113,26 +116,62 @@ TEST_F(PIM_Test, EltwiseSubScalarMod) {
 TEST_F(PIM_Test, EltwiseMulMod) {
     auto vec1 = createRandomVector(vector_size);
     auto vec2 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> r1(vector_size);
+    pim::Vector<dpu_word_t> r1(vector_size);
     
     pim::EltwiseMulMod(r1, vec1, vec2, modulus);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = modMul(vec1[i], vec2[i], modulus);
+        dpu_word_t expected = modMul(vec1[i], vec2[i], modulus);
         ASSERT_EQ(r1[i], expected) 
             << "Mismatch at index " << i;
     }
+    
+    // dpu_word_t mu = barrett_init(modulus);
+
+    // pim::Vector<dpu_word_t> r2(vector_size);
+    // pim::EltwiseMulMod(r2, vec1, vec2, modulus, mu);
+
+    // for (size_t i = 0; i < vector_size; ++i) {
+    //     dpu_word_t expected = modMul(vec1[i], vec2[i], modulus);
+    //     ASSERT_EQ(r2[i], expected) 
+    //         << "Mismatch at index " << i << " a: " << vec1[i]
+    //         << " b: " << vec2[i] << " mu: " << mu
+    //         << " modulus: " << modulus
+    //         << " expected: " << expected
+    //         << " got: " << r2[i];
+    // }
+
 }
+
+TEST_F(PIM_Test, EltwiseMulModBarrett) {
+    auto vec1 = createRandomVector(vector_size);
+    auto vec2 = createRandomVector(vector_size);
+    pim::Vector<dpu_word_t> r(vector_size);
+
+    
+    dpu_word_t mu = barrett_init(modulus);
+
+    pim::EltwiseMulMod(r, vec1, vec2, modulus, mu);
+
+    for (size_t i = 0; i < vector_size; ++i) {
+        dpu_word_t expected = modMul(vec1[i], vec2[i], modulus);
+        ASSERT_EQ(r[i], expected) 
+            << "Mismatch at index " << i;
+    }
+
+}
+
+
 
 TEST_F(PIM_Test, EltwiseScalarMulMod) {
     auto vec1 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
-    uint64_t scalar = 7;
+    pim::Vector<dpu_word_t> result(vector_size);
+    dpu_word_t scalar = 7;
     
     pim::EltwiseScalarMulMod(result, vec1, scalar, modulus);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = modMul(vec1[i], scalar, modulus);
+        dpu_word_t expected = modMul(vec1[i], scalar, modulus);
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i;
     }
@@ -141,43 +180,49 @@ TEST_F(PIM_Test, EltwiseScalarMulMod) {
 TEST_F(PIM_Test, EltwiseFMAMod) {
     auto vec1 = createRandomVector(vector_size);
     auto addend = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
-    uint64_t scalar = 13;
+    pim::Vector<dpu_word_t> result(vector_size);
+    dpu_word_t scalar = 13;
     
     pim::EltwiseFMAMod(result, vec1, addend, scalar, modulus);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t mul_result = modMul(vec1[i], scalar, modulus);
-        uint64_t expected = modAdd(mul_result, addend[i], modulus);
+        dpu_word_t mul_result = modMul(vec1[i], scalar, modulus);
+        dpu_word_t expected = modAdd(mul_result, addend[i], modulus);
+        // std::cout<< "Index: " << i 
+        //      << ", vec1: " << vec1[i] 
+        //      << ", addend: " << addend[i] 
+        //      << ", scalar: " << scalar 
+        //      << ", expected: " << expected 
+        //      << ", result: " << result[i] << std::endl;
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i;
     }
 }
 
-TEST_F(PIM_Test, EltwiseConditionalAdd) {
+TEST_F(PIM_Test, EltwiseCondAdd) {
     auto vec1 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
-    uint64_t bound = modulus / 2;
-    uint64_t diff = 100;
+    pim::Vector<dpu_word_t> result(vector_size);
+    dpu_word_t bound = modulus / 2;
+    dpu_word_t diff = 100;
     
-    pim::EltwiseConditionalAdd(result, vec1, pim::LESS_THAN, bound, diff);
+    pim::EltwiseCondAdd(result, vec1, pim::LESS_THAN, bound, diff);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = vec1[i] + (vec1[i] < bound ? diff : 0);
+        dpu_word_t expected = vec1[i] + (vec1[i] < bound ? diff : 0);
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i;
     }
 }
-TEST_F(PIM_Test, EltwiseConditionalSubMod) {
+TEST_F(PIM_Test, EltwiseCondSubMod) {
     auto vec1 = createRandomVector(vector_size);
-    pim::Vector<uint64_t> result(vector_size);
-    uint64_t bound = modulus / 2;
-    uint64_t diff = 50;
+    pim::Vector<dpu_word_t> result(vector_size);
+    dpu_word_t bound = modulus / 2;
+    dpu_word_t diff = 50;
     
-    pim::EltwiseConditionalSubMod(result, vec1, modulus, pim::GREATER_EQUAL, bound, diff);
+    pim::EltwiseCondSubMod(result, vec1, modulus, pim::GREATER_EQUAL, bound, diff);
     
     for (size_t i = 0; i < vector_size; ++i) {
-        uint64_t expected = modSub(vec1[i], (vec1[i] >= bound ? diff : 0), modulus);
+        dpu_word_t expected = modSub(vec1[i], (vec1[i] >= bound ? diff : 0), modulus);
         ASSERT_EQ(result[i], expected) 
             << "Mismatch at index " << i;
     }
@@ -185,15 +230,15 @@ TEST_F(PIM_Test, EltwiseConditionalSubMod) {
 
 // TEST_F(PIM_Test, EltwiseReduceMod) {
 //     auto vec1 = createRandomVector(vector_size);
-//     pim::Vector<uint64_t> result(vector_size);
-//     uint64_t mod = modulus;
+//     pim::Vector<dpu_word_t> result(vector_size);
+//     dpu_word_t mod = modulus;
 //     uint32_t in_factor = 2;
 //     uint32_t out_factor = 2;
     
 //     pim::EltwiseReduceMod(result, vec1, mod, in_factor, out_factor);
     
 //     for (size_t i = 0; i < vector_size; ++i) {
-//         uint64_t expected = (vec1[i] / in_factor) % mod * out_factor;
+//         dpu_word_t expected = (vec1[i] / in_factor) % mod * out_factor;
 //         ASSERT_EQ(result[i], expected) 
 //             << "Mismatch at index " << i;
 //     }

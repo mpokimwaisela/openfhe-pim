@@ -19,7 +19,7 @@ make -j
 To run the benchmark:
 
 ```bash
-./bin/benchmark/poly-benchmark-8k
+./bin/benchmark/poly-benchmark-8k 
 ```
 
 To run the CPU variant just recompile with `cmake ..  -DWITH_PIM_HEXL=OFF`

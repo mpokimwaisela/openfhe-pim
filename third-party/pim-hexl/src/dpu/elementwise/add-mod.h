@@ -6,7 +6,7 @@ static void add_mod_compute(dpu_word_t *out, const dpu_word_t *a, const dpu_word
                             uint32_t n, void *ctx_) {
   dpu_word_t m = ((ctx_binop_t *)ctx_)->mod;
   for (uint32_t i = 0; i < n; ++i) {
-    out[i] = add_mod_u64(a[i], b[i], m);
+    out[i] = add_mod(a[i], b[i], m);
   }
 }
 
@@ -15,7 +15,7 @@ static void add_mod_scalar_compute(dpu_word_t *out, const dpu_word_t *a,
   ctx_scalar_t *ctx = (ctx_scalar_t *)ctx_;
   dpu_word_t m = ctx->mod, s = ctx->scalar;
   for (uint32_t i = 0; i < n; ++i)
-    out[i] = add_mod_u64(a[i], s, m);
+    out[i] = add_mod(a[i], s, m);
 }
 
 static inline int mod_add() {

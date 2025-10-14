@@ -14,7 +14,7 @@ static void mult_mod_compute(dpu_word_t *out, const dpu_word_t *a,
   const dpu_word_t m = ctx->mod;
   const dpu_word_t mu = ctx->mu;
   for (uint32_t i = 0; i < n; ++i) {
-    out[i] = mul_mod_u64_g(a[i], b[i], m, mu);
+    out[i] = mul_mod(a[i], b[i], m, mu);
   }
 }
 
@@ -23,7 +23,7 @@ static void mult_mod_scalar_compute(dpu_word_t *out, const dpu_word_t *a,
   ctx_mult_t *ctx = (ctx_mult_t *)ctx_;
   dpu_word_t m = ctx->mod, s = ctx->scalar, mu = ctx->mu;
   for (uint32_t i = 0; i < n; ++i)
-    out[i] = mul_mod_u64_g(a[i], s, m, mu);
+    out[i] = mul_mod(a[i], s, m, mu);
 }
 
 static inline int mod_mul() {

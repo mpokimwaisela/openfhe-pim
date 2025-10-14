@@ -88,21 +88,15 @@ public:
     using iterator = VectorIterator<T>;
     using const_iterator = VectorConstIterator<T>;
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // CONSTRUCTORS AND DESTRUCTOR
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     Vector() : shard_{0, 0}, total_(0) {}
     
     ~Vector() {
-        if (shutdown_mode.load()) {
-            return;  // Skip cleanup during shutdown  
-    }
-        try {
-            deallocate_if_owner();
-        } catch (...) {
-            // Ignore exceptions during destruction to prevent termination issues
-        }
+    if (shutdown_mode.load(std::memory_order_relaxed)) return;
+    try { deallocate_if_owner(); } catch (...) {}
     }
     
     Vector(const Vector& other) : shard_{0, 0}, total_(0) { 
@@ -121,9 +115,9 @@ public:
         build(n, v); 
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // ASSIGNMENT OPERATORS
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     Vector& operator=(const Vector& other) {
         if (this != &other) {
@@ -174,9 +168,9 @@ public:
         return *this;
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // SERIALIZATION CONFIGURATION
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     /**
      * @brief Set custom serializer for complex data types
@@ -190,9 +184,9 @@ public:
      */
     void set_deserializer(Deserializer d) { deserializer_ = d; }
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // STL-COMPATIBLE INTERFACE
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     /**
      * @brief Get the number of elements in the vector
@@ -231,9 +225,9 @@ public:
         if (new_size != total_) build(new_size, value); 
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // ITERATOR SUPPORT
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     iterator begin() { return iterator(this, 0); }
     iterator end() { return iterator(this, total_); }
@@ -242,9 +236,9 @@ public:
     const_iterator cbegin() const { return const_iterator(this, 0); }
     const_iterator cend() const { return const_iterator(this, total_); }
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // ELEMENT ACCESS
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     /**
      * @brief Access element with bounds checking
@@ -284,9 +278,9 @@ public:
         return shards_[s][idx];
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // SERIALIZATION SUPPORT
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     /**
      * @brief Save vector to archive (Cereal serialization support)
@@ -321,9 +315,9 @@ public:
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // DPU SYNCHRONIZATION
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     /**
      * @brief Commit host changes to DPU memory
@@ -336,7 +330,13 @@ public:
         #ifdef PROFILE
         PROFILE_FUNCTION();
         #endif
+
         if (state_ != CopyState::HOST_DIRTY) return;
+        
+        {
+        #ifdef PROFILE
+        PROFILE_SCOPE("commit_done");
+        #endif
         auto &mgr = PIMManager::instance();
         // std::cout << "Committing " << shards_.size() << " shards to DPU memory\n";
 
@@ -353,6 +353,8 @@ public:
             }
         }
         state_ = CopyState::CLEAN;
+
+        }
     }
     /**
      * @brief Mark host data as stale (DPU has newer data)
@@ -371,9 +373,9 @@ public:
     const PIMManager::Block &shard() const { return shard_; } 
 
 private:
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // PRIVATE MEMBER VARIABLES
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     Serializer serializer_{nullptr};       ///< Custom serializer function
     Deserializer deserializer_{nullptr};   ///< Custom deserializer function
@@ -382,22 +384,32 @@ private:
     size_t total_{0};                       ///< Total number of elements
     mutable CopyState state_{CopyState::HOST_DIRTY}; ///< Synchronization state
 
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
     // PRIVATE HELPER METHODS
-    // ═══════════════════════════════════════════════════════════════════════════════════
+    // ==============================
 
     /**
      * @brief Safely deallocate DPU memory if this object owns it
      */
     void deallocate_if_owner() {
-        if (total_ > 0 && shard_.bytes > 0) {
+        if (total_ == 0 || shard_.bytes == 0) {
+            shard_ = {0u, 0u};
+            total_ = 0;
+            return;
+        }
+
+        if (!shutdown_mode.load(std::memory_order_relaxed)) {
             try {
-                auto &mgr = PIMManager::instance();
+                auto& mgr = PIMManager::instance();
                 mgr.deallocate(shard_);
             } catch (...) {
-                // Ignore errors during shutdown or if manager is invalid
+                // swallow during cleanup
             }
         }
+
+        // Prevent double-free: mark as empty even if we skipped manager cleanup.
+        shard_ = {0u, 0u};
+        total_ = 0;
     }
 
     /**
@@ -493,7 +505,14 @@ private:
         #ifdef PROFILE
         PROFILE_FUNCTION();
         #endif
+        
         if (state_ != CopyState::PIM_FRESH) return;
+        
+        {
+        #ifdef PROFILE
+        PROFILE_SCOPE("pull_all_done");
+        #endif
+
         auto &mgr = PIMManager::instance();
 
         if constexpr (std::is_same_v<T, dpu_word_t>) {
@@ -508,11 +527,13 @@ private:
             }
         }
         state_ = CopyState::CLEAN;
+        }
     }
 };
-// ═══════════════════════════════════════════════════════════════════════════════════════
+
+// 
 // KERNEL EXECUTION FRAMEWORK
-// ═══════════════════════════════════════════════════════════════════════════════════════
+// 
 
 /**
  * @brief Execute a DPU kernel with input and output buffers

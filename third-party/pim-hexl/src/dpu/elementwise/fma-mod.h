@@ -38,7 +38,7 @@ static void fma_mod_compute(dpu_word_t *out, const dpu_word_t *a, const dpu_word
     dpu_word_t y = addFlg ? reduce_8m(b[i], m) : 0;
 
     /* 2) multiply-mod without 128-bit */
-    dpu_word_t prod = mul_mod_u64(x, scalar, m);
+    dpu_word_t prod = mul_mod(x, scalar, m,0);
 
     /* 3) add + final reduction (single conditional) */
     dpu_word_t sum = prod + y;

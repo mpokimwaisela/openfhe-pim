@@ -83,7 +83,7 @@ option(USE_MACPORTS "Use MacPorts installed packages"                           
 
 # Set required number of bits for native integer in build by setting NATIVE_SIZE to 64 or 128
 if(NOT NATIVE_SIZE)
-    set(NATIVE_SIZE 64)
+        set(NATIVE_SIZE 64)
 endif()
 
 if(NOT CKKS_M_FACTOR)
@@ -695,6 +695,7 @@ if(WITH_PIM_HEXL)
         find_program(DPU_CC dpu-upmem-dpurte-clang)
         
         if(DPU_CC)
+            
             # Compile DPU kernel
             set(DPU_KERNEL ${CMAKE_CURRENT_BINARY_DIR}/main.dpu)
             add_custom_command(

@@ -6,7 +6,7 @@ static void sub_mod_compute(dpu_word_t *out, const dpu_word_t *a, const dpu_word
                             uint32_t n, void *ctx_) {
   dpu_word_t mod = ((ctx_binop_t *)ctx_)->mod;
   for (uint32_t i = 0; i < n; ++i) {
-    out[i] = sub_mod_u64(a[i], b[i], mod);
+    out[i] = sub_mod(a[i], b[i], mod);
   }
 }
 
@@ -17,7 +17,7 @@ static void sub_mod_scalar_compute(dpu_word_t *out, const dpu_word_t *a,
   dpu_word_t scalar = ctx->scalar;
 
   for (uint32_t i = 0; i < n; ++i) {
-    out[i] = sub_mod_u64(a[i], scalar, mod);
+    out[i] = sub_mod(a[i], scalar, mod);
   }
 }
 

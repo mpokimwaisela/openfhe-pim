@@ -35,8 +35,8 @@ replicated_twiddles(uint32_t N, uint64_t mod) {
 
   for (uint32_t k = 1; k < N; ++k) {
 
-    uint64_t a = mul_mod_u64(W[k - 1], omega, mod);
-    uint64_t b = mul_mod_u64(W_inv[k - 1], pow_mod_u64(omega, N - 1, mod), mod);
+    uint64_t a = mul_mod(W[k - 1], omega, mod,0);
+    uint64_t b = mul_mod(W_inv[k - 1], pow_mod(omega, N - 1, mod), mod,0);
 
     for (int d = 0; d < D; ++d) {
       W[k * D] = a;
@@ -126,9 +126,9 @@ inline void distributed_ntt(Vector<uint64_t> &vec,
 
   if (inverse) {
     bit_reverse(vec);
-    uint64_t invN = inverse_mod_u64(N, mod);
+    uint64_t invN = inverse_mod(N, mod);
     for (uint32_t i = 0; i < N; ++i)
-      vec[i] = mul_mod_u64(vec[i], invN, mod);
+      vec[i] = mul_mod(vec[i], invN, mod,0);
   } 
 }
 

@@ -26,7 +26,7 @@ static void cmp_sub_mod_compute(dpu_word_t *out, const dpu_word_t *in,
       v -= mod;
 
     if (cmp_ok(v, bound, code)) {
-      v = sub_mod_u64(v, diff, mod);
+      v = sub_mod(v, diff, mod);
     }
     out[i] = v;
   }

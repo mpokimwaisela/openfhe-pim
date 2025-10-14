@@ -62,9 +62,9 @@ process_mram_blocks(compute_fn_t compute, uint32_t offset_A,
   }
 }
 
-static inline dpu_word_t mram_read_u64(__mram_ptr const dpu_word_t *src) {
-  dpu_word_t tmp;
+static inline dpu_word_t mram_read_uw(__mram_ptr const dpu_word_t *src) {
+  dpu_word_t tmp[2];
   /* NB: sizeof(dpu_word_t) == 8, MRAM address is already word-aligned */
-  mram_read((__mram_ptr void const *)src, &tmp, sizeof(dpu_word_t));
-  return tmp;
+  mram_read((__mram_ptr void const *)src, &tmp, sizeof(dpu_word_t)*2);
+  return tmp[0];
 }

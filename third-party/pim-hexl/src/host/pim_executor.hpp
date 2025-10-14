@@ -131,7 +131,7 @@ void EltwiseFMAMod(Vector<T>& destination, const Vector<T>& op1,
 
 /** @brief Conditional addition: C[i] = A[i] + (A[i] cmp bound ? diff : 0) */
 template<typename T>
-void EltwiseConditionalAdd(Vector<T>& destination, const Vector<T>& op1, 
+void EltwiseCondAdd(Vector<T>& destination, const Vector<T>& op1, 
                            cmp_t comparison, dpu_word_t bound, dpu_word_t diff) {
     #ifdef PROFILE
     PROFILE_FUNCTION();
@@ -142,7 +142,7 @@ void EltwiseConditionalAdd(Vector<T>& destination, const Vector<T>& op1,
 
 /** @brief Conditional modular subtraction: C[i] = A[i] - (A[i] cmp bound ? diff : 0) % modulus */
 template<typename T>
-void EltwiseConditionalSubMod(Vector<T>& destination, const Vector<T>& op1, 
+void EltwiseCondSubMod(Vector<T>& destination, const Vector<T>& op1, 
                               dpu_word_t modulus, cmp_t comparison, dpu_word_t bound, dpu_word_t diff) {
     #ifdef PROFILE
     PROFILE_FUNCTION();
@@ -166,7 +166,7 @@ void EltwiseReduceMod(Vector<T>& destination, const Vector<T>& op1,
 
 
 /** @brief Initialize PIM system with specified number of DPUs */
-inline void Init(unsigned num_dpus = 1, const std::string& kernel_path = "main.dpu") {
+inline void Init(unsigned num_dpus = DPU_ALLOCATE_ALL, const std::string& kernel_path = "main.dpu") {
     PIMManager::init(num_dpus, kernel_path);
 }
 
