@@ -77,7 +77,7 @@ vector<i64> element_wise_mul(const vector<i64> &a, const vector<i64> &b, i64 p, 
   return c;
 }
 
-// Efficient NTT (forward transform) - in-place Cooley–Tukey algorithm
+// in-place Cooley–Tukey algorithm
 void ntt(vector<i64>& a, i64 psi, i64 p) {
     int n = a.size();
     i64 omega = modmul(psi, psi, p);           // omega = psi^2 (primitive n-th root of unity mod p)
